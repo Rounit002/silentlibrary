@@ -1,7 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const session = require('express-session');
-const bcrypt = require('bcrypt');
+// const bcrypt = require('bcrypt'); // <-- REMOVED
 const { Pool } = require('pg');
 const path = require('path');
 const cors = require('cors');
@@ -131,7 +131,7 @@ if (typeof checkAdminOrStaff !== 'function') {
   process.exit(1);
 }
 
-const authRoutes = authRouterFactory(pool, bcrypt);
+const authRoutes = authRouterFactory(pool); // <-- REMOVED bcrypt
 
 app.post('/api/upload-image', authenticateUser, checkAdminOrStaff, upload.single('image'), async (req, res) => {
   try {
@@ -170,21 +170,22 @@ app.post('/api/upload-image', authenticateUser, checkAdminOrStaff, upload.single
   }
 });
 
-const initializeRoute = (filePath, poolInstance, bcryptInstance) => {
+const initializeRoute = (filePath, poolInstance) => { // <-- REMOVED bcryptInstance
   try {
     const routeFactory = require(filePath);
     if (typeof routeFactory !== 'function') {
       logger.error(`FATAL: Route factory in ${filePath} is not a function. Exiting.`);
       process.exit(1);
     }
-    return filePath.includes('users') ? routeFactory(poolInstance, bcryptInstance) : routeFactory(poolInstance);
+    // Pass pool to all route factories
+    return routeFactory(poolInstance);
   } catch (e) {
     logger.error(`FATAL: Failed to require or initialize route from ${filePath}: ${e.message} ${e.stack}`);
     process.exit(1);
   }
 };
 
-const userRoutes = initializeRoute('./routes/users', pool, bcrypt);
+const userRoutes = initializeRoute('./routes/users', pool); // <-- REMOVED bcrypt
 const studentRoutes = initializeRoute('./routes/students', pool);
 const scheduleRoutes = initializeRoute('./routes/schedules', pool);
 const seatsRoutes = initializeRoute('./routes/seats', pool);
@@ -321,8 +322,8 @@ async function createDefaultAdmin() {
     const usersTableExists = await pool.query(`
       SELECT EXISTS (
         SELECT FROM information_schema.tables
-        WHERE  table_schema = 'public'
-        AND    table_name   = 'users'
+        WHERE   table_schema = 'public'
+        AND     table_name   = 'users'
       );
     `);
     if (!usersTableExists.rows[0].exists) {
@@ -332,10 +333,10 @@ async function createDefaultAdmin() {
 
     const userCountResult = await pool.query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
     if (parseInt(userCountResult.rows[0].count) === 0) {
-      const hashedPassword = await bcrypt.hash(process.env.DEFAULT_ADMIN_PASSWORD || 'admin', 10);
+      const plainPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'admin'; // <-- Use plain password
       await pool.query(
         'INSERT INTO users (username, password, role, full_name, email) VALUES ($1, $2, $3, $4, $5)',
-        [process.env.DEFAULT_ADMIN_USERNAME || 'admin', hashedPassword, 'admin', 'Default Admin', 'admin@example.com']
+        [process.env.DEFAULT_ADMIN_USERNAME || 'admin', plainPassword, 'admin', 'Default Admin', 'admin@example.com'] // <-- Store plain password
       );
       logger.info('Default admin user created.');
     } else {
@@ -343,7 +344,7 @@ async function createDefaultAdmin() {
     }
   } catch (err) {
     logger.error('Error creating default admin user:', err.stack);
-     if (err.code === '42P01') {
+      if (err.code === '42P01') {
         logger.warn('Users table does not exist yet (checked again). Default admin cannot be created.');
     } else if (err.code !== '23505') { // 23505 is unique_violation
         // logger.error('Unhandled error during default admin creation:', err);

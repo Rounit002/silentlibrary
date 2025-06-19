@@ -1,6 +1,6 @@
 const { checkAdmin } = require('./auth');
 
-module.exports = (pool, bcrypt) => {
+module.exports = (pool) => {
   const router = require('express').Router();
 
   // Get current user profile
@@ -50,23 +50,20 @@ module.exports = (pool, bcrypt) => {
       if (current_password && new_password) {
         // Verify current password
         const userResult = await pool.query('SELECT password FROM users WHERE id = $1', [req.session.user.id]);
-        const isPasswordValid = await bcrypt.compare(current_password, userResult.rows[0].password);
+        const isPasswordValid = current_password === userResult.rows[0].password; // Removed bcrypt.compare
         
         if (!isPasswordValid) {
           return res.status(400).json({ message: 'Current password is incorrect' });
         }
         
-        // Hash new password
-        const hashedPassword = await bcrypt.hash(new_password, 10);
-        
-        // Update user with new password
+        // Update user with new password (plain text)
         const result = await pool.query(
           `UPDATE users SET 
            full_name = COALESCE($1, full_name),
            email = COALESCE($2, email),
            password = $3
            WHERE id = $4 RETURNING id, username, full_name, email, role`,
-          [full_name, email, hashedPassword, req.session.user.id]
+          [full_name, email, new_password, req.session.user.id] // Store new_password directly
         );
         
         return res.json({ 
@@ -112,15 +109,12 @@ module.exports = (pool, bcrypt) => {
         return res.status(400).json({ message: 'Username already exists' });
       }
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Insert new user without permissions
+      // Insert new user with plain text password
       const result = await pool.query(
         `INSERT INTO users (username, password, role, full_name, email) 
          VALUES ($1, $2, $3, $4, $5) 
          RETURNING id, username, role`,
-        [username, hashedPassword, role, full_name || '', email || '']
+        [username, password, role, full_name || '', email || ''] // Store password directly
       );
 
       res.status(201).json({ 
