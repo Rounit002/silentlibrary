@@ -196,6 +196,8 @@ const generalCollectionsRoutes = initializeRoute('./routes/collections', pool);
 const expensesRoutes = initializeRoute('./routes/expenses', pool);
 const reportsRoutes = initializeRoute('./routes/reports', pool);
 const hostelCollectionRoutes = initializeRoute('./routes/hostelCollections', pool);
+const hostelExpensesRoutes = require('./routes/hostelExpenses')(pool);
+const hostelReportsRoutes = require('./routes/hostelReports')(pool);
 const branchesRoutes = initializeRoute('./routes/branches', pool);
 const productsRoutes = initializeRoute('./routes/products', pool);
 
@@ -210,6 +212,8 @@ app.use('/api/settings', authenticateUser, checkAdmin, settingsRoutes);
 app.use('/api/hostel/branches', authenticateUser, checkAdminOrStaff, hostelBranchesRoutes);
 app.use('/api/hostel/students', authenticateUser, checkAdminOrStaff, hostelStudentsRoutes);
 app.use('/api/hostel/collections', authenticateUser, checkAdminOrStaff, hostelCollectionRoutes);
+app.use('/api/hostel-expenses', hostelExpensesRoutes);
+app.use('/api/hostel-reports', hostelReportsRoutes);
 app.use('/api/transactions', authenticateUser, checkAdminOrStaff, transactionsRoutes);
 app.use('/api/collections', authenticateUser, checkAdminOrStaff, generalCollectionsRoutes);
 app.use('/api/expenses', authenticateUser, checkAdminOrStaff, expensesRoutes);

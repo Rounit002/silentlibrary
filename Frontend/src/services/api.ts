@@ -21,6 +21,8 @@ interface Expense {
   id: number;
   title: string;
   amount: number;
+  cash: number;
+  online: number;
   date: string;
   remark: string | null;
   branchId?: number | null;
@@ -398,6 +400,60 @@ const api = {
       return response.data;
     } catch (error: any) {
       throw error;
+    }
+  },
+
+  // START: Added Hostel Expense Functions
+  getHostelExpenses: async (branchId?: number): Promise<{ expenses: Expense[] }> => {
+  // --- FIX END ---
+    const params: any = {};
+    if (branchId) params.branchId = branchId;
+    const response = await apiClient.get('/hostel-expenses', { params });
+    return response.data;
+  },
+
+  addHostelExpense: async (expenseData: {
+    title: string;
+    cash: string | number;
+    online: string | number;
+    date: string;
+    remark: string;
+    branchId?: number | null;
+  }): Promise<Expense> => {
+    const response = await apiClient.post('/hostel-expenses', expenseData);
+    return response.data;
+  },
+
+  updateHostelExpense: async (
+    id: number,
+    expenseData: {
+      title: string;
+      cash: string | number;
+      online: string | number;
+      date: string;
+      remark: string;
+      branchId?: number | null;
+    }
+  ): Promise<Expense> => {
+    const response = await apiClient.put(`/hostel-expenses/${id}`, expenseData);
+    return response.data;
+  },
+
+  deleteHostelExpense: async (id: number): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/hostel-expenses/${id}`);
+    return response.data;
+  },
+  // END: Added Hostel Expense Functions
+
+  getHostelProfitLoss: async (params: { month?: string; date?: string; branchId?: number | null }) => {
+    try {
+      // This endpoint '/hostel-reports/profit-loss' must match the route you created on your backend.
+      const response = await apiClient.get('/hostel-reports/profit-loss', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('API Error fetching hostel profit/loss:', error.response?.data?.message || error.message);
+      // Re-throw the error so the component can catch it.
+      throw new Error(error.response?.data?.message || 'Failed to fetch hostel profit and loss data');
     }
   },
 

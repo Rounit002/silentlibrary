@@ -32,9 +32,11 @@ import HostelCollectionDue from './pages/HostelCollectionDue';
 import ExpiredHostelMemberships from './pages/ExpiredHostelMemberships';
 import ManageBranches from './pages/ManageBranches'; 
 import ProductsPage from './pages/ProductsPage'; 
-import HostelDashboard from './pages/HostelDashboard'; // Import new Hostel Dashboard
-import ActiveHostelStudents from './pages/ActiveHostelStudents'; // Import new Active Hostel Students page
+import HostelDashboard from './pages/HostelDashboard';
+import ActiveHostelStudents from './pages/ActiveHostelStudents';
 import InactiveStudents from './pages/InactiveStudents';
+import HostelExpenses from './pages/HostelExpenses'; // <-- IMPORT NEW COMPONENT
+import HostelProfitLoss from './pages/HostelProfitLoss';
 
 const queryClient = new QueryClient();
 
@@ -51,10 +53,20 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       
-      {/* New Routes */}
+      {/* Hostel Routes */}
       <Route path="/hostel-dashboard" element={<ProtectedRoute><HostelDashboard /></ProtectedRoute>} />
       <Route path="/hostel/active-students" element={<ProtectedRoute><ActiveHostelStudents /></ProtectedRoute>} />
+      <Route path="/hostel" element={<ProtectedRoute><HostelPage /></ProtectedRoute>} />
+      <Route path="/hostel/branches/:branchId/students" element={<ProtectedRoute><BranchStudentsPage /></ProtectedRoute>} />
+      <Route path="/hostel/students/:id" element={<ProtectedRoute><HostelStudentDetails /></ProtectedRoute>} />
+      <Route path="/hostel/students/:id/edit" element={<ProtectedRoute><EditHostelStudent /></ProtectedRoute>} />
+      <Route path="/hostel/collections" element={<ProtectedRoute><HostelCollectionDue /></ProtectedRoute>} />
+      <Route path="/hostel/expired" element={<ProtectedRoute><ExpiredHostelMemberships /></ProtectedRoute>} />
+      <Route path="/hostel/expenses" element={<ProtectedRoute><HostelExpenses /></ProtectedRoute>} /> {/* <-- ADD NEW ROUTE */}
+      <Route path="/hostel/profit-loss" element={<ProtectedRoute><HostelProfitLoss /></ProtectedRoute>} />
 
+
+      {/* Library/General Routes */}
       <Route path="/students" element={<ProtectedRoute><AllStudents /></ProtectedRoute>} />
       <Route path="/students/add" element={<ProtectedRoute><AddStudentForm /></ProtectedRoute>} />
       <Route path="/students/:id" element={<ProtectedRoute><StudentDetails /></ProtectedRoute>} />
@@ -63,19 +75,12 @@ function AppRoutes() {
       <Route path="/expired-memberships" element={<ProtectedRoute><ExpiredMemberships /></ProtectedRoute>} />
       <Route path="/expiring-memberships" element={<ProtectedRoute><ExpiringMembershipsPage /></ProtectedRoute>} />
       <Route path="/inactive-students" element={<ProtectedRoute><InactiveStudents /></ProtectedRoute>} />
-      <Route path="/expiring-memberships" element={<ProtectedRoute><ExpiringMembershipsPage /></ProtectedRoute>} />
       <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
       <Route path="/shifts" element={<ProtectedRoute><ShiftList /></ProtectedRoute>} />
       <Route path="/shifts/:id/students" element={<ProtectedRoute><ShiftStudents /></ProtectedRoute>} />
       <Route path="/seats" element={<ProtectedRoute><SeatsPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/users/new" element={<AdminRoute><AddUserForm /></AdminRoute>} />
-      <Route path="/hostel" element={<ProtectedRoute><HostelPage /></ProtectedRoute>} />
-      <Route path="/hostel/branches/:branchId/students" element={<ProtectedRoute><BranchStudentsPage /></ProtectedRoute>} />
-      <Route path="/hostel/students/:id" element={<ProtectedRoute><HostelStudentDetails /></ProtectedRoute>} />
-      <Route path="/hostel/students/:id/edit" element={<ProtectedRoute><EditHostelStudent /></ProtectedRoute>} />
-      <Route path="/hostel/collections" element={<ProtectedRoute><HostelCollectionDue /></ProtectedRoute>} />
-      <Route path="/hostel/expired" element={<ProtectedRoute><ExpiredHostelMemberships /></ProtectedRoute>} />
       <Route path="/transactions" element={<ProtectedRoute><TransactionsPage /></ProtectedRoute>} />
       <Route path="/collections" element={<ProtectedRoute><CollectionDue /></ProtectedRoute>} />
       <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
