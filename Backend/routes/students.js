@@ -288,12 +288,13 @@ router.get('/expiring-soon', checkAdminOrStaff, async (req, res) => {
   router.get('/shift/:shiftId', checkAdminOrStaff, async (req, res) => {
     try {
       const { shiftId } = req.params;
-      const { search, status: statusFilter } = req.query;
+      const { search, status: statusFilter, branchId } = req.query;
       
       const shiftIdNum = parseInt(shiftId, 10);
       if (isNaN(shiftIdNum)) {
         return res.status(400).json({ message: 'Invalid Shift ID' });
       }
+      const branchIdNum = branchId ? parseInt(branchId, 10) : null;
 
       let query = `
         SELECT
@@ -328,6 +329,12 @@ router.get('/expiring-soon', checkAdminOrStaff, async (req, res) => {
         } else if (statusFilter === 'expired') {
           query += ` AND s.membership_end < CURRENT_DATE`;
         }
+      }
+
+      if (branchIdNum) {
+        query += ` AND s.branch_id = $${paramIndex}`;
+        params.push(branchIdNum);
+        paramIndex++;
       }
       
       query += ` ORDER BY s.name`;

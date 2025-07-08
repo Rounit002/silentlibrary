@@ -634,9 +634,9 @@ const api = {
     return response.data;
   },
 
-  getSchedulesWithStudents: async () => {
+  getSchedulesWithStudents: async (filters: { branchId?: number } = {}): Promise<{ schedules: Schedule[] }> => {
     try {
-      const response = await apiClient.get('/schedules/with-students');
+      const response = await apiClient.get('/schedules/with-students', { params: filters });
       return response.data;
     } catch (error: any) {
       console.error('Error fetching schedules with students:', error.response?.data || error.message);
@@ -721,7 +721,7 @@ const api = {
     }
   },
 
-  getStudentsByShift: async (shiftId: number, filters: { search?: string; status?: string }) => {
+  getStudentsByShift: async (shiftId: number, filters: { search?: string; status?: string; branchId?: number }): Promise<{ students: Student[] }> => {
     const response = await apiClient.get(`/students/shift/${shiftId}`, { params: filters });
     return response.data;
   },

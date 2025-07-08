@@ -1,23 +1,57 @@
+// File: ShiftList.tsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import api from '../services/api';
 import { Clock, Calendar, Users, Loader2 } from 'lucide-react';
 
+interface Branch {
+  id: number;
+  name: string;
+  code: string | null;
+}
+
+interface Shift {
+    id: number;
+    title: string;
+    eventDate: string;
+    time: string;
+    studentCount: number;
+}
+
 const ShiftList: React.FC = () => {
-  const [shifts, setShifts] = useState<any[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [filters, setFilters] = useState({ branchId: 'all' });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const response = await api.getBranches();
+        setBranches(response || []);
+      } catch (err) {
+        console.error('Failed to fetch branches:', err);
+      }
+    };
+    fetchBranches();
+  }, []);
+
+  useEffect(() => {
     const fetchShifts = async () => {
       try {
-        const response = await api.getSchedulesWithStudents();
+        setIsLoading(true);
+        const params = {
+          branchId: filters.branchId !== 'all' ? parseInt(filters.branchId) : undefined,
+        };
+        const response = await api.getSchedulesWithStudents(params);
         setShifts(response.schedules || []);
       } catch (err) {
         setError('Failed to load shifts. Please try again later.');
@@ -27,9 +61,14 @@ const ShiftList: React.FC = () => {
       }
     };
     fetchShifts();
-  }, []);
+  }, [filters]);
+
+  const handleBranchChange = (value: string) => {
+    setFilters((prev) => ({ ...prev, branchId: value }));
+  };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
     return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(
       new Date(dateString)
     );
@@ -60,6 +99,21 @@ const ShiftList: React.FC = () => {
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View and manage your scheduled shifts</p>
               </CardHeader>
               <CardContent className="pt-6">
+                {/* <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <Select value={filters.branchId} onValueChange={handleBranchChange}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Branches</SelectItem>
+                      {branches.map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id.toString()}>
+                          {branch.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div> */}
                 {isLoading ? (
                   <div className="flex justify-center items-center py-8">
                     <Loader2 size={24} className="animate-spin text-gray-500 dark:text-gray-400" />
@@ -71,43 +125,24 @@ const ShiftList: React.FC = () => {
                   </Alert>
                 ) : shifts.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    No shifts available. Add a new shift to get started.
+                    No shifts found for the selected branch.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-gray-700 dark:text-gray-300">
-                            <div className="flex items-center gap-1.5">
-                              Title
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-gray-700 dark:text-gray-300">
-                            <div className="flex items-center gap-1.5">
-                              <Calendar size={16} />
-                              Date
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-gray-700 dark:text-gray-300">
-                            <div className="flex items-center gap-1.5">
-                              <Clock size={16} />
-                              Time
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-right text-gray-700 dark:text-gray-300">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <Users size={16} />
-                              Students
-                            </div>
-                          </TableHead>
+                          <TableHead className="text-gray-700 dark:text-gray-300">Title</TableHead>
+                          <TableHead className="text-gray-700 dark:text-gray-300">Date</TableHead>
+                          <TableHead className="text-gray-700 dark:text-gray-300">Time</TableHead>
+                          <TableHead className="text-right text-gray-700 dark:text-gray-300">Students</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {shifts.map((shift) => (
                           <TableRow
                             key={shift.id}
-                            className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors animate-fade-in-row"
+                            className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                           >
                             <TableCell className="font-medium text-gray-800 dark:text-gray-200">
                               {shift.title}
@@ -116,7 +151,7 @@ const ShiftList: React.FC = () => {
                               {formatDate(shift.eventDate)}
                             </TableCell>
                             <TableCell className="text-gray-600 dark:text-gray-400">
-                              {formatTime(shift.time)} {/* Fixed: Use shift.time instead of description */}
+                              {formatTime(shift.time)}
                             </TableCell>
                             <TableCell className="text-right">
                               <Link
@@ -137,35 +172,6 @@ const ShiftList: React.FC = () => {
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        @keyframes fadeInRow {
-          from {
-            opacity: 0;
-            transform: translateX(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-out forwards;
-        }
-        .animate-fade-in-row {
-          animation: fadeInRow 0.3s ease-out forwards;
-        }
-      `}</style>
     </div>
   );
 };

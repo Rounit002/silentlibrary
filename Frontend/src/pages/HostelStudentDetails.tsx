@@ -111,7 +111,7 @@ const HostelStudentDetails: React.FC = () => {
           <div className="logo-container">
             <img src={SilentHostel} alt="SDM Boy's Hostel Banner" />
           </div>
-          <div className="reg-number">Reg. No: 03483</div>
+          <div className="reg-number">Reg. No: 03482</div>
           <div className="flex space-x-4">
             {student.profileImageUrl && (
               <img

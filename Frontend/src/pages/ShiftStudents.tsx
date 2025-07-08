@@ -13,7 +13,6 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import api from '../services/api';
 
-// Interface updated to include registrationNumber
 interface Student {
   id: number;
   name: string;
@@ -43,20 +42,40 @@ interface Student {
   }>;
 }
 
+interface Branch {
+  id: number;
+  name: string;
+  code: string | null;
+}
+
 const ShiftStudents: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [students, setStudents] = useState<Student[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [shiftName, setShiftName] = useState<string>('');
-  const [filters, setFilters] = useState({ search: '', status: 'all' });
+  const [filters, setFilters] = useState({ search: '', status: 'all', branchId: 'all' });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const data = await api.getBranches();
+        setBranches(data || []);
+      } catch (err) {
+        console.error('Failed to fetch branches:', err);
+      }
+    };
+    fetchBranches();
+  }, []);
+
+  useEffect(() => {
     const fetchShiftAndStudents = async () => {
       try {
+        setIsLoading(true);
         const shiftId = parseInt(id!, 10);
         if (isNaN(shiftId)) {
           throw new Error('Invalid shift ID');
@@ -65,9 +84,13 @@ const ShiftStudents: React.FC = () => {
         const shiftResponse = await api.getSchedule(shiftId);
         setShiftName(shiftResponse.title || `Shift ${shiftId}`);
 
-        // The backend will handle searching by registration number with the existing `filters` object.
-        const studentsResponse = await api.getStudentsByShift(shiftId, filters);
-        
+        const params: { search?: string; status?: string; branchId?: number } = {
+          search: filters.search || undefined,
+          status: filters.status !== 'all' ? filters.status : undefined,
+          branchId: filters.branchId !== 'all' ? parseInt(filters.branchId) : undefined,
+        };
+        const studentsResponse = await api.getStudentsByShift(shiftId, params);
+
         if (!studentsResponse || !Array.isArray(studentsResponse.students)) {
           throw new Error('Invalid response: Students data is missing or not an array');
         }
@@ -92,6 +115,10 @@ const ShiftStudents: React.FC = () => {
 
   const handleStatusChange = (value: string) => {
     setFilters((prev) => ({ ...prev, status: value }));
+  };
+
+  const handleBranchChange = (value: string) => {
+    setFilters((prev) => ({ ...prev, branchId: value }));
   };
 
   return (
@@ -144,7 +171,7 @@ const ShiftStudents: React.FC = () => {
                     name="search"
                     value={filters.search}
                     onChange={handleFilterChange}
-                    placeholder="Search by name, phone, or Reg. No."
+                    placeholder="Search by name or phone"
                     className="max-w-sm"
                   />
                   <Select value={filters.status} onValueChange={handleStatusChange}>
@@ -152,9 +179,22 @@ const ShiftStudents: React.FC = () => {
                       <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="expired">Expired</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={filters.branchId} onValueChange={handleBranchChange}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Branches</SelectItem>
+                      {branches.map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id.toString()}>
+                          {branch.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -167,14 +207,14 @@ const ShiftStudents: React.FC = () => {
                   </Alert>
                 ) : students.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    No students found for this shift.
+                    No students found for this shift with the selected filters.
                   </div>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
-                        <TableHead>Registration Number</TableHead>
+                        <TableHead>Registration No.</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Status</TableHead>
