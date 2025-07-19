@@ -288,14 +288,22 @@ router.get('/expiring-soon', checkAdminOrStaff, async (req, res) => {
   router.get('/shift/:shiftId', checkAdminOrStaff, async (req, res) => {
     try {
       const { shiftId } = req.params;
-      const { search, status: statusFilter, branchId } = req.query;
+      // ADD: Get pagination parameters from the query
+      const { search, status: statusFilter, branchId, page, limit } = req.query;
       
       const shiftIdNum = parseInt(shiftId, 10);
       if (isNaN(shiftIdNum)) {
         return res.status(400).json({ message: 'Invalid Shift ID' });
       }
+
+      // ADD: Parse pagination values
+      const pageNum = page ? parseInt(page, 10) : 1;
+      const limitNum = limit ? parseInt(limit, 10) : 10;
+      const offset = (pageNum - 1) * limitNum;
+      
       const branchIdNum = branchId ? parseInt(branchId, 10) : null;
 
+      // CHANGE: Modified query to include total count calculation and pagination
       let query = `
         SELECT
           s.id,
@@ -309,7 +317,8 @@ router.get('/expiring-soon', checkAdminOrStaff, async (req, res) => {
           CASE
             WHEN s.membership_end < CURRENT_DATE THEN 'expired'
             ELSE 'active'
-          END AS status
+          END AS status,
+          COUNT(*) OVER() AS total_count -- ADD: Calculate total rows before pagination
         FROM students s
         JOIN seat_assignments sa ON s.id = sa.student_id
         WHERE sa.shift_id = $1
@@ -337,11 +346,21 @@ router.get('/expiring-soon', checkAdminOrStaff, async (req, res) => {
         paramIndex++;
       }
       
-      query += ` ORDER BY s.name`;
+      query += ` ORDER BY s.name LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`; // ADD: Pagination
+      params.push(limitNum, offset);
 
       const result = await pool.query(query, params);
       
-      res.json({ students: result.rows });
+      // CHANGE: Extract the total count and construct the correct response object
+      const totalCount = result.rows.length > 0 ? parseInt(result.rows[0].total_count, 10) : 0;
+
+      // Optional: Clean up the helper 'total_count' property from student objects before sending
+      const students = result.rows.map(row => {
+        const { total_count, ...studentData } = row;
+        return studentData;
+      });
+
+      res.json({ students: students, totalCount: totalCount });
 
     } catch (err) {
       console.error(`Error fetching students for shift ${req.params.shiftId}:`, err);

@@ -45,7 +45,13 @@ interface Student {
 interface Branch {
   id: number;
   name: string;
-  code: string | null;
+  code: string | null; // Ensuring 'code' can be null to match the first error's context
+}
+
+// New interface for the API response containing students and total count
+interface StudentsByShiftResponse {
+  students: Student[];
+  totalCount: number;
 }
 
 const ShiftStudents: React.FC = () => {
@@ -60,11 +66,17 @@ const ShiftStudents: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalStudents, setTotalStudents] = useState(0);
+
   useEffect(() => {
     const fetchBranches = async () => {
       try {
+        // Assuming api.getBranches() returns Promise<Branch[]>
         const data = await api.getBranches();
-        setBranches(data || []);
+        setBranches(data || []); // Corrected: removed .data
       } catch (err) {
         console.error('Failed to fetch branches:', err);
       }
@@ -82,20 +94,25 @@ const ShiftStudents: React.FC = () => {
         }
 
         const shiftResponse = await api.getSchedule(shiftId);
-        setShiftName(shiftResponse.title || `Shift ${shiftId}`);
+        setShiftName(shiftResponse.description || `Shift ${shiftId}`);
 
-        const params: { search?: string; status?: string; branchId?: number } = {
+        const params: { search?: string; status?: string; branchId?: number; page?: number; limit?: number } = {
           search: filters.search || undefined,
           status: filters.status !== 'all' ? filters.status : undefined,
           branchId: filters.branchId !== 'all' ? parseInt(filters.branchId) : undefined,
+          page: currentPage,
+          limit: itemsPerPage,
         };
-        const studentsResponse = await api.getStudentsByShift(shiftId, params);
+
+        // Corrected: Use type assertion 'as' to resolve the type mismatch.
+        const studentsResponse = await api.getStudentsByShift(shiftId, params) as StudentsByShiftResponse;
 
         if (!studentsResponse || !Array.isArray(studentsResponse.students)) {
           throw new Error('Invalid response: Students data is missing or not an array');
         }
 
         setStudents(studentsResponse.students);
+        setTotalStudents(studentsResponse.totalCount || 0);
       } catch (err: any) {
         const errorMessage = err.message || 'Failed to load shift details or students. Please try again later.';
         setError(errorMessage);
@@ -106,20 +123,30 @@ const ShiftStudents: React.FC = () => {
       }
     };
     fetchShiftAndStudents();
-  }, [id, filters]);
+  }, [id, filters, currentPage, itemsPerPage]); // Add pagination states to dependencies
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
+    setCurrentPage(1); // Reset to first page on filter change
   };
 
   const handleStatusChange = (value: string) => {
     setFilters((prev) => ({ ...prev, status: value }));
+    setCurrentPage(1); // Reset to first page on filter change
   };
 
   const handleBranchChange = (value: string) => {
     setFilters((prev) => ({ ...prev, branchId: value }));
+    setCurrentPage(1); // Reset to first page on filter change
   };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(parseInt(value, 10));
+    setCurrentPage(1); // Reset to first page when items per page changes
+  };
+
+  const totalPages = Math.ceil(totalStudents / itemsPerPage);
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
@@ -210,38 +237,75 @@ const ShiftStudents: React.FC = () => {
                     No students found for this shift with the selected filters.
                   </div>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Registration No.</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {students.map((student) => (
-                        <TableRow key={student.id}>
-                          <TableCell className="font-medium">{student.name}</TableCell>
-                          <TableCell>{student.registrationNumber || 'N/A'}</TableCell>
-                          <TableCell>{student.email || 'N/A'}</TableCell>
-                          <TableCell>{student.phone || 'N/A'}</TableCell>
-                          <TableCell>
-                            <span
-                              className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                                student.status === 'active'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-red-100 text-red-800'
-                              }`}
-                            >
-                              {student.status}
-                            </span>
-                          </TableCell>
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Registration No.</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Phone</TableHead>
+                          <TableHead>Status</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {students.map((student) => (
+                          <TableRow key={student.id}>
+                            <TableCell className="font-medium">{student.name}</TableCell>
+                            <TableCell>{student.registrationNumber || 'N/A'}</TableCell>
+                            <TableCell>{student.email || 'N/A'}</TableCell>
+                            <TableCell>{student.phone || 'N/A'}</TableCell>
+                            <TableCell>
+                              <span
+                                className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                                  student.status === 'active'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {student.status}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Total Students: {totalStudents}
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue placeholder="Per page" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="25">25</SelectItem>
+                            <SelectItem value="50">50</SelectItem>
+                            <SelectItem value="100">100</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="outline"
+                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages || totalStudents === 0}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
