@@ -1,4 +1,3 @@
-// File: ExpiredMemberships.tsx
 import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
@@ -57,7 +56,6 @@ interface Student {
   seatNumber?: string;
 }
 
-
 interface Seat {
   id: number;
   seatNumber: string;
@@ -79,6 +77,8 @@ const ExpiredMemberships = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [renewDialogOpen, setRenewDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   
   // State for all form fields
   const [nameInput, setNameInput] = useState('');
@@ -194,7 +194,6 @@ const ExpiredMemberships = () => {
   };
 
   const handleRenewSubmit = async () => {
-    // **FIX START**: Added stricter validation to match backend requirements
     if (
       !selectedStudent || !startDate || !endDate ||
       !nameInput.trim() || !phoneInput.trim() || !addressInput.trim() ||
@@ -203,7 +202,6 @@ const ExpiredMemberships = () => {
       toast.error('Please ensure Name, Phone, Address, Branch, Shift, and Fee are filled correctly.');
       return;
     }
-    // **FIX END**
 
     try {
       await api.renewStudent(selectedStudent.id, {
@@ -231,6 +229,7 @@ const ExpiredMemberships = () => {
 
       const resp = await api.getExpiredMemberships();
       setStudents(resp.students);
+      setCurrentPage(1); // Reset to first page after renewal
 
     } catch (err: any) {
       console.error('Renew error:', err.response?.data || err.message);
@@ -243,6 +242,23 @@ const ExpiredMemberships = () => {
   const paid = cashAmount + onlineAmount;
   const due = (parseFloat(totalFee) || 0) - paid;
 
+  // Pagination calculations
+  const filteredStudents = students.filter(
+    (s) =>
+      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.phone && s.phone.includes(searchTerm)) ||
+      (s.registrationNumber && s.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+  const totalItems = filteredStudents.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = filteredStudents.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
   if (!user) {
     navigate('/login');
     return null;
@@ -253,12 +269,12 @@ const ExpiredMemberships = () => {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar />
-        <div className="p-4">
+        <div className="p-4 flex-1 overflow-y-auto">
           <h2 className="text-xl font-semibold mb-4">Expired Memberships</h2>
           <div className="relative mb-4">
             <Search className="absolute left-3 top-3 text-gray-400" />
             <input
-              className="pl-10 pr-4 py-2 border rounded"
+              className="pl-10 pr-4 py-2 border rounded w-full"
               placeholder="Search by name, phone, or Reg. No."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -267,65 +283,94 @@ const ExpiredMemberships = () => {
           {loading ? (
             <p>Loading...</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Registration Number</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Expiry</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {students
-                  .filter(
-                    (s) =>
-                      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      (s.phone && s.phone.includes(searchTerm)) ||
-                      (s.registrationNumber && s.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()))
-                  )
-                  .map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell>{student.name}</TableCell>
-                      <TableCell>{student.registrationNumber || 'N/A'}</TableCell>
-                      <TableCell>{student.email}</TableCell>
-                      <TableCell>{student.phone}</TableCell>
-                      <TableCell>{formatDate(student.membershipEnd)}</TableCell>
-                      <TableCell className="space-x-2">
-                        <Button onClick={() => navigate(`/students/${student.id}`)} variant="outline">
-                          <Eye size={16} />
-                        </Button>
-                        {user?.role === 'admin' && (
-                          <Button onClick={() => handleRenewClick(student)}>
-                            <ChevronRight size={16} /> Renew
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>S.No.</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Registration Number</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Expiry</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentItems.map((student, index) => (
+                      <TableRow key={student.id}>
+                        <TableCell>{startIndex + index + 1}</TableCell>
+                        <TableCell>{student.name}</TableCell>
+                        <TableCell>{student.registrationNumber || 'N/A'}</TableCell>
+                        <TableCell>{student.email}</TableCell>
+                        <TableCell>{student.phone}</TableCell>
+                        <TableCell>{formatDate(student.membershipEnd)}</TableCell>
+                        <TableCell className="space-x-2">
+                          <Button onClick={() => navigate(`/students/${student.id}`)} variant="outline">
+                            <Eye size={16} />
                           </Button>
-                        )}
-                        {(user?.role === 'admin' ||
-                          (hasPermissions(user) && user.permissions.includes('manage_students'))) && (
-                          <Button
-                            variant="destructive"
-                            onClick={async () => {
-                              if (window.confirm('Are you sure you want to delete this student? This action cannot be undone.')) {
-                                try {
+                          {user?.role === 'admin' && (
+                            <Button onClick={() => handleRenewClick(student)}>
+                              <ChevronRight size={16} /> Renew
+                            </Button>
+                          )}
+                          {(user?.role === 'admin' ||
+                            (hasPermissions(user) && user.permissions.includes('manage_students'))) && (
+                            <Button
+                              variant="destructive"
+                              onClick={async () => {
+                                if (window.confirm('Are you sure you want to delete this student? This action cannot be undone.')) {
+                                  try {
                                     await api.deleteStudent(student.id);
                                     setStudents(students.filter((s) => s.id !== student.id));
                                     toast.success('Student deleted successfully.');
-                                } catch(err: any) {
+                                  } catch(err: any) {
                                     toast.error(err.message || "Failed to delete student.");
+                                  }
                                 }
-                              }
-                            }}
-                          >
-                            <Trash2 size={16} />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
+                              }}
+                            >
+                              <Trash2 size={16} />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="mt-4 flex justify-between items-center">
+                <p className="text-sm text-gray-600">
+                  Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} entries
+                </p>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft size={16} />
+                  </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      onClick={() => handlePageChange(page)}
+                    >
+                      {page}
+                    </Button>
                   ))}
-              </TableBody>
-            </Table>
+                  <Button
+                    variant="outline"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight size={16} />
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -337,7 +382,7 @@ const ExpiredMemberships = () => {
               <DialogDescription>Renew for {selectedStudent?.name}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-               <div>
+              <div>
                 <label className="block text-sm font-medium">Name</label>
                 <input
                   className="w-full border rounded px-3 py-2 mt-1"
@@ -346,7 +391,7 @@ const ExpiredMemberships = () => {
                   onChange={(e) => setNameInput(e.target.value)}
                 />
               </div>
-               <div>
+              <div>
                 <label className="block text-sm font-medium">Registration Number</label>
                 <input
                   className="w-full border rounded px-3 py-2 mt-1"
@@ -355,7 +400,7 @@ const ExpiredMemberships = () => {
                   onChange={(e) => setRegistrationNumberInput(e.target.value)}
                 />
               </div>
-               <div>
+              <div>
                 <label className="block text-sm font-medium">Father's Name</label>
                 <input
                   className="w-full border rounded px-3 py-2 mt-1"
@@ -364,7 +409,7 @@ const ExpiredMemberships = () => {
                   onChange={(e) => setFatherNameInput(e.target.value)}
                 />
               </div>
-                <div>
+              <div>
                 <label className="block text-sm font-medium">Aadhar Number</label>
                 <input
                   className="w-full border rounded px-3 py-2 mt-1"
@@ -373,7 +418,7 @@ const ExpiredMemberships = () => {
                   onChange={(e) => setAadharNumberInput(e.target.value)}
                 />
               </div>
-                <div>
+              <div>
                 <label className="block text-sm font-medium">Address</label>
                 <textarea
                   className="w-full border rounded px-3 py-2 mt-1"
