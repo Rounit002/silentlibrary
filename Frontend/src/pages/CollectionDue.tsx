@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
 import api from '../services/api';
+import { useAuth } from '@/context/AuthContext';
 
 interface Collection {
   historyId: number;
@@ -41,6 +42,7 @@ const CollectionDue: React.FC = () => {
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online' | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchBranches = async () => {
@@ -242,43 +244,45 @@ const CollectionDue: React.FC = () => {
               </select>
             </motion.div>
 
-            <motion.div
-              className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.3 }}
-            >
-              <div className="bg-white p-4 rounded-lg shadow-sm border">
-                <h3 className="text-sm font-medium text-gray-500">Total Students</h3>
-                <p className="text-xl font-bold text-gray-800">{totalStudents}</p>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow-sm border">
-                <h3 className="text-sm font-medium text-gray-500">Total Collected</h3>
-                <p className="text-xl font-bold text-green-600">₹{totalCollected.toFixed(2)}</p>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow-sm border">
-                <h3 className="text-sm font-medium text-gray-500">Total Due</h3>
-                <p className="text-xl font-bold text-red-600">₹{totalDue.toFixed(2)}</p>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow-sm border">
-                <h3 className="text-sm font-medium text-gray-500">Total Cash Collected</h3>
-                <p className="text-xl font-bold text-green-600">₹{totalCash.toFixed(2)}</p>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow-sm border">
-                <h3 className="text-sm font-medium text-gray-500">Total Online Collected</h3>
-                <p className="text-xl font-bold text-green-600">₹{totalOnline.toFixed(2)}</p>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow-sm border">
-                <h3 className="text-sm font-medium text-gray-500">Total Security Money</h3>
-                <p className="text-xl font-bold text-blue-600">₹{totalSecurityMoney.toFixed(2)}</p>
-              </div>
-            </motion.div>
+            {user?.role === 'admin' && ( // Wrap the aggregated financial data section in a conditional render
+              <motion.div
+                className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.3 }}
+              >
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                  <h3 className="text-sm font-medium text-gray-500">Total Students</h3>
+                  <p className="text-xl font-bold text-gray-800">{totalStudents}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                  <h3 className="text-sm font-medium text-gray-500">Total Collected</h3>
+                  <p className="text-xl font-bold text-green-600">₹{totalCollected.toFixed(2)}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                  <h3 className="text-sm font-medium text-gray-500">Total Due</h3>
+                  <p className="text-xl font-bold text-red-600">₹{totalDue.toFixed(2)}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                  <h3 className="text-sm font-medium text-gray-500">Total Cash Collected</h3>
+                  <p className="text-xl font-bold text-green-600">₹{totalCash.toFixed(2)}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                  <h3 className="text-sm font-medium text-gray-500">Total Online Collected</h3>
+                  <p className="text-xl font-bold text-green-600">₹{totalOnline.toFixed(2)}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                  <h3 className="text-sm font-medium text-gray-500">Total Security Money</h3>
+                  <p className="text-xl font-bold text-blue-600">₹{totalSecurityMoney.toFixed(2)}</p>
+                </div>
+              </motion.div>
+            )}
 
             <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shift</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Fee</th>

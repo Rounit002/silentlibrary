@@ -1,9 +1,9 @@
 module.exports = (pool) => {
   const express = require('express');
   const router = express.Router();
-  const { checkAdmin } = require('./auth');
+  const { checkAdmin, checkAdminOrStaff } = require('./auth');
 
-  router.get('/', checkAdmin, async (req, res) => {
+  router.get('/', checkAdminOrStaff, async (req, res) => {
     try {
       const result = await pool.query('SELECT * FROM branches ORDER BY name');
       res.json({ branches: result.rows });

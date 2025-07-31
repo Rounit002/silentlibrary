@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import Sidebar from '../components/Sidebar'; 
-import api from '../services/api'; 
+import api from '../services/api';
+import { useAuth } from '@/context/AuthContext'; 
 
 interface Collection {
   historyId: number;
@@ -42,6 +43,7 @@ const HostelCollectionDue: React.FC = () => {
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [paymentType, setPaymentType] = useState<'cash' | 'online'>('cash');
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchBranches = async () => {
@@ -153,18 +155,22 @@ const HostelCollectionDue: React.FC = () => {
       toast.error('No collection selected for payment.');
       return;
     }
-    if (!paymentAmount) {
-      toast.error('Payment amount is required');
+
+    const payment = parseFloat(paymentAmount);
+
+    if (isNaN(payment) || !paymentAmount) {
+      toast.error('Payment amount is required and must be a valid number.');
       return;
     }
-    const payment = parseFloat(paymentAmount);
-    if (isNaN(payment) || payment <= 0) {
+
+    if (payment <= 0) {
       toast.error('Invalid payment amount. Must be greater than 0.');
       return;
     }
+
     if (payment > selectedCollection.dueAmount + 0.001) {
-        toast.error(`Payment amount (₹${payment.toFixed(2)}) cannot exceed current due amount (₹${selectedCollection.dueAmount.toFixed(2)}).`);
-        return;
+      toast.error(`Payment amount (₹${payment.toFixed(2)}) cannot exceed the due amount (₹${selectedCollection.dueAmount.toFixed(2)}).`);
+      return;
     }
 
     setPaymentLoading(true);
@@ -173,13 +179,13 @@ const HostelCollectionDue: React.FC = () => {
         payment_amount: payment,
         payment_type: paymentType,
       });
-      toast.success('Payment updated successfully');
+      toast.success('Payment updated successfully!');
       setIsPayModalOpen(false);
-      setSelectedCollection(null); 
-      await fetchCollectionsData(selectedMonth, selectedBranchId); 
+      setSelectedCollection(null);
+      await fetchCollectionsData(selectedMonth, selectedBranchId);
     } catch (err: any) {
       console.error('[HostelCollectionDue] Failed to update payment:', err);
-      toast.error(err.message || 'Failed to update payment');
+      toast.error(err.message || 'Failed to update payment. Please try again.');
     } finally {
       setPaymentLoading(false);
     }
@@ -238,39 +244,40 @@ const HostelCollectionDue: React.FC = () => {
             </select>
           </motion.div>
 
-          <motion.div
-            // Adjusted grid columns to potentially accommodate new total
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6" 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.3 }}
-          >
-            <div className="bg-white p-4 rounded-lg shadow-sm border">
-              <h3 className="text-sm font-medium text-gray-500">Filtered Records</h3>
-              <p className="text-xl font-bold text-gray-800">{totalRecords}</p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm border">
-              <h3 className="text-sm font-medium text-gray-500">Total Collected</h3>
-              <p className="text-xl font-bold text-green-600">₹{totalCollected.toFixed(2)}</p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm border">
-              <h3 className="text-sm font-medium text-gray-500">Total Security Money</h3> 
-              <p className="text-xl font-bold text-orange-600">₹{totalSecurityMoney.toFixed(2)}</p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm border">
-              <h3 className="text-sm font-medium text-gray-500">Total Due</h3>
-              <p className="text-xl font-bold text-red-600">₹{totalDue.toFixed(2)}</p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm border">
-              <h3 className="text-sm font-medium text-gray-500">Cash Collected</h3>
-              <p className="text-xl font-bold text-blue-600">₹{totalCash.toFixed(2)}</p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm border">
-              <h3 className="text-sm font-medium text-gray-500">Online Collected</h3>
-              <p className="text-xl font-bold text-purple-600">₹{totalOnline.toFixed(2)}</p>
-            </div>
-          </motion.div>
-          
+          {user?.role === 'admin' && (
+            <motion.div
+              // Adjusted grid columns to potentially accommodate new total
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.3 }}
+            >
+              <div className="bg-white p-4 rounded-lg shadow-sm border">
+                <h3 className="text-sm font-medium text-gray-500">Filtered Records</h3>
+                <p className="text-xl font-bold text-gray-800">{totalRecords}</p>
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow-sm border">
+                <h3 className="text-sm font-medium text-gray-500">Total Collected</h3>
+                <p className="text-xl font-bold text-green-600">₹{totalCollected.toFixed(2)}</p>
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow-sm border">
+                <h3 className="text-sm font-medium text-gray-500">Total Security Money</h3>
+                <p className="text-xl font-bold text-orange-600">₹{totalSecurityMoney.toFixed(2)}</p>
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow-sm border">
+                <h3 className="text-sm font-medium text-gray-500">Total Due</h3>
+                <p className="text-xl font-bold text-red-600">₹{totalDue.toFixed(2)}</p>
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow-sm border">
+                <h3 className="text-sm font-medium text-gray-500">Cash Collected</h3>
+                <p className="text-xl font-bold text-blue-600">₹{totalCash.toFixed(2)}</p>
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow-sm border">
+                <h3 className="text-sm font-medium text-gray-500">Online Collected</h3>
+                <p className="text-xl font-bold text-purple-600">₹{totalOnline.toFixed(2)}</p>
+              </div>
+            </motion.div>
+          )}
           {loading && <div className="text-center text-gray-500 py-10">Loading collections...</div>}
           {error && !loading && <div className="text-center text-red-500 py-10">Error: {error}</div>}
           
@@ -282,15 +289,14 @@ const HostelCollectionDue: React.FC = () => {
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Student Name</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Branch</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Current Room (M)</th>
-                    {/* <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">History Room (H)</th> REMOVED */}
-                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Security Money</th> {/* ADDED */}
+                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Security Money</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Reg. No</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Phone</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Stay Start</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Stay End</th>
                     <th className="px-3 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Total Fee</th>
-                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Cash Paid</th>
-                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Online Paid</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Cash Paid</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Online Paid</th>
                     <th className="px-3 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Due Amount</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Remark (H)</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Created (H)</th>
@@ -300,7 +306,7 @@ const HostelCollectionDue: React.FC = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredCollections.length === 0 ? (
                     <tr>
-                      <td colSpan={15} className="px-3 py-4 text-center text-gray-500"> {/* Adjusted colspan */}
+                      <td colSpan={15} className="px-3 py-4 text-center text-gray-500">
                         No collections found for the selected criteria.
                       </td>
                     </tr>
@@ -316,8 +322,7 @@ const HostelCollectionDue: React.FC = () => {
                         <td className="px-3 py-4 whitespace-nowrap">{collection.studentName || 'N/A'}</td>
                         <td className="px-3 py-4 whitespace-nowrap">{collection.branchName || 'N/A'}</td>
                         <td className="px-3 py-4 whitespace-nowrap">{collection.studentCurrentRoomNumber || 'N/A'}</td>
-                        {/* <td className="px-3 py-4 whitespace-nowrap">{collection.historyRoomNumber || 'N/A'}</td> REMOVED */}
-                        <td className="px-3 py-4 whitespace-nowrap text-right">₹{(collection.studentSecurityMoney || 0).toFixed(2)}</td> {/* ADDED */}
+                        <td className="px-3 py-4 whitespace-nowrap text-right">₹{(collection.studentSecurityMoney || 0).toFixed(2)}</td>
                         <td className="px-3 py-4 whitespace-nowrap">{collection.studentRegistrationNumber || 'N/A'}</td>
                         <td className="px-3 py-4 whitespace-nowrap">{collection.studentPhoneNumber || 'N/A'}</td>
                         <td className="px-3 py-4 whitespace-nowrap">{collection.stayStartDate ? new Date(collection.stayStartDate).toLocaleDateString() : 'N/A'}</td>

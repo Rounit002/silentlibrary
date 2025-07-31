@@ -462,6 +462,15 @@ const api = {
     return response.data;
   },
 
+  getExpiredMemberships: async (branchId?: number) => {
+    const params: any = {};
+    if (branchId) {
+      params.branchId = branchId;
+    }
+    const response = await apiClient.get('/students/expired', { params });
+    return response.data;
+  },
+
   // ADD NEW FUNCTION
   updateStudentStatus: async (id: number, status: { isActive: boolean }): Promise<{ student: Student }> => {
     const response = await apiClient.put(`/students/${id}/status`, status);
@@ -487,12 +496,7 @@ const api = {
     return response.data;
   },
 
-  getExpiredMemberships: async (branchId?: number): Promise<{ students: Student[] }> => {
-    const params: any = {};
-    if (branchId) params.branchId = branchId;
-    const response = await apiClient.get('/students/expired', { params });
-    return response.data;
-  },
+
 
   getExpiringSoon: async (branchId?: number): Promise<{ students: Student[] }> => {
     const params: any = {};

@@ -73,7 +73,7 @@ module.exports = (pool) => {
     }
   });
 
-  router.put('/:historyId', checkAdmin, async (req, res) => {
+  router.put('/:historyId', checkAdminOrStaff, async (req, res) => {
     const client = await pool.connect(); // Use a transaction to ensure consistency
     try {
       await client.query('BEGIN'); // Start transaction

@@ -75,6 +75,7 @@ const ExpiredMemberships = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFilterBranch, setSelectedFilterBranch] = useState<any>(null);
   const [renewDialogOpen, setRenewDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -110,7 +111,7 @@ const ExpiredMemberships = () => {
       setLoading(true);
       try {
         const [studentsResp, shiftsResp, branchesResp] = await Promise.all([
-          api.getExpiredMemberships(),
+          api.getExpiredMemberships(selectedFilterBranch?.value),
           api.getSchedules(),
           api.getBranches(),
         ]);
@@ -125,7 +126,7 @@ const ExpiredMemberships = () => {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [selectedFilterBranch]);
 
   useEffect(() => {
     if (selectedShift && selectedStudent) {
@@ -280,6 +281,16 @@ const ExpiredMemberships = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <div className="mb-4">
+            <Select
+              isClearable
+              placeholder="Filter by Branch..."
+              options={branchOptions}
+              value={selectedFilterBranch}
+              onChange={setSelectedFilterBranch}
+              className="w-full md:w-1/3"
+            />
+          </div>
           {loading ? (
             <p>Loading...</p>
           ) : (
@@ -310,7 +321,7 @@ const ExpiredMemberships = () => {
                           <Button onClick={() => navigate(`/students/${student.id}`)} variant="outline">
                             <Eye size={16} />
                           </Button>
-                          {user?.role === 'admin' && (
+                                                    {(user?.role === 'admin' || user?.role === 'staff') && (
                             <Button onClick={() => handleRenewClick(student)}>
                               <ChevronRight size={16} /> Renew
                             </Button>

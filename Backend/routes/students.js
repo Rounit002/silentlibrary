@@ -161,11 +161,12 @@ module.exports = (pool) => {
         WHERE s.membership_end < CURRENT_DATE
       `;
       const params = [];
-      
+
       if (branchIdNum) {
         query += ` AND s.branch_id = $1`;
         params.push(branchIdNum);
       }
+      
       query += ` ORDER BY s.name`;
 
       const result = await pool.query(query, params);
@@ -720,7 +721,7 @@ if (shiftIdsNum.length > 0) {
   //================================================================//
   //==               FIXED RENEW MEMBERSHIP ROUTE                 ==//
   //================================================================//
-  router.post('/:id/renew', checkAdmin, async (req, res) => {
+    router.post('/:id/renew', checkAdminOrStaff, async (req, res) => {
     const client = await pool.connect(); // Use transaction for multi-step operation
     try {
       await client.query('BEGIN');

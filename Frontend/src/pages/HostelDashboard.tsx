@@ -23,6 +23,8 @@ const HostelDashboard: React.FC = () => {
     return null;
   }
 
+  const { user } = useAuth();
+
   const [hostelStats, setHostelStats] = useState<{
     totalStudents: number;
     branches: { id: number; name: string; studentCount: number }[];
@@ -31,6 +33,7 @@ const HostelDashboard: React.FC = () => {
     totalDue: number;
   }>({ totalStudents: 0, branches: [], expiredCount: 0, totalCollection: 0, totalDue: 0 });
   const [hostelLoading, setHostelLoading] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const fetchHostelStats = async () => {
     setHostelLoading(true);
@@ -82,7 +85,7 @@ const HostelDashboard: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar />
+      <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar />
         <main className="flex-1 overflow-y-auto p-6">
@@ -102,24 +105,28 @@ const HostelDashboard: React.FC = () => {
                       iconBgColor="bg-cyan-100"
                       arrowIcon={<ChevronRight className="h-5 w-5 text-cyan-400" />}
                     />
-                    <Link to="/hostel/collections" className="block">
-                      <StatCard
-                        title="Total Hostel Collection"
-                        value={hostelStats.totalCollection}
-                        icon={<DollarSign className="h-6 w-6 text-green-500" />}
-                        iconBgColor="bg-green-100"
-                        arrowIcon={<ChevronRight className="h-5 w-5 text-green-400" />}
-                      />
-                    </Link>
-                    <Link to="/hostel/collections" className="block">
-                      <StatCard
-                        title="Total Hostel Due"
-                        value={hostelStats.totalDue}
-                        icon={<AlertTriangle className="h-6 w-6 text-red-500" />}
-                        iconBgColor="bg-red-100"
-                        arrowIcon={<ChevronRight className="h-5 w-5 text-red-400" />}
-                      />
-                    </Link>
+                    {user?.role === 'admin' && (
+                      <>
+                        <Link to="/hostel/collections" className="block">
+                          <StatCard
+                            title="Total Hostel Collection"
+                            value={hostelStats.totalCollection}
+                            icon={<DollarSign className="h-6 w-6 text-green-500" />}
+                            iconBgColor="bg-green-100"
+                            arrowIcon={<ChevronRight className="h-5 w-5 text-green-400" />}
+                          />
+                        </Link>
+                        <Link to="/hostel/collections" className="block">
+                          <StatCard
+                            title="Total Hostel Due"
+                            value={hostelStats.totalDue}
+                            icon={<AlertTriangle className="h-6 w-6 text-red-500" />}
+                            iconBgColor="bg-red-100"
+                            arrowIcon={<ChevronRight className="h-5 w-5 text-red-400" />}
+                          />
+                        </Link>
+                      </>
+                    )}
                     <Link to="/hostel/expired" className="block">
                       <StatCard
                         title="Expired Students"
