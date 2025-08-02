@@ -543,111 +543,114 @@ if (shiftIdsNum.length > 0) {
     //================================================================//
   //==        FINAL, FULLY FUNCTIONAL PUT /:id ROUTE              ==//
   //================================================================//
-    router.put('/:id', checkAdminOrStaff, async (req, res) => {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const id = parseInt(req.params.id, 10);
-      
-      const {
-        name, email, phone, address, 
-        branch_id, 
-        membership_start, 
-        membership_end,
-        total_fee, 
-        amount_paid, 
-        shift_ids, 
-        seat_id, 
-        cash, 
-        online, 
-        security_money, 
-        remark,
-        registration_number, 
-        father_name, 
-        aadhar_number, 
-        profile_image_url
-      } = req.body;
-      
-      if (!name || !phone || !address || !branch_id || !membership_start || !membership_end) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ message: 'Required fields missing: Name, Phone, Address, Branch, and Membership Dates are required.' });
-      }
+router.put('/:id', checkAdminOrStaff, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const id = parseInt(req.params.id, 10);
 
-      const seatIdNum = seat_id ? parseInt(seat_id, 10) : null;
-      const shiftIdsNum = shift_ids && Array.isArray(shift_ids) ? shift_ids.map(sid => parseInt(sid, 10)) : [];
-      
-      const dueAmountValue = parseFloat(total_fee) - parseFloat(amount_paid);
-      const status = new Date(membership_end) < new Date() ? 'expired' : 'active';
+    const {
+      name, email, phone, address,
+      branch_id,
+      membership_start,
+      membership_end,
+      total_fee,
+      amount_paid,
+      shift_ids,
+      seat_id,
+      cash,
+      online,
+      security_money,
+      remark,
+      registration_number,
+      father_name,
+      aadhar_number,
+      profile_image_url
+    } = req.body;
 
-      // Step 1: Update the primary students table
-      const result = await client.query(
-        `UPDATE students 
-         SET name = $1, email = $2, phone = $3, address = $4, branch_id = $5,
-             membership_start = $6, membership_end = $7, total_fee = $8, 
-             amount_paid = $9, due_amount = $10, cash = $11, online = $12, 
-             security_money = $13, remark = $14, status = $15,
-             registration_number = $16, father_name = $17, aadhar_number = $18, profile_image_url = $19
-         WHERE id = $20
-         RETURNING *`,
-        [
-          name, email, phone, address, branch_id, membership_start, membership_end,
-          total_fee, amount_paid, dueAmountValue, cash, online,
-          security_money, remark || null, status, 
-          registration_number || null, father_name || null, aadhar_number || null, profile_image_url || null,
-          id
-        ]
-      );
-
-      if (result.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ message: 'Student not found' });
-      }
-      
-      const updatedStudent = result.rows[0];
-      
-      let firstShiftId = null;
-      // Update seat assignments
-      await client.query('DELETE FROM seat_assignments WHERE student_id = $1', [id]);
-      if (shiftIdsNum.length > 0) {
-        for (const shiftId of shiftIdsNum) {
-          await client.query(
-            'INSERT INTO seat_assignments (seat_id, shift_id, student_id) VALUES ($1, $2, $3)',
-            [seatIdNum, shiftId, id]
-          );
-          if (!firstShiftId) firstShiftId = shiftId;
-        }
-      }
-      
-      // FIX: Update the latest history record instead of inserting a new one.
-      await client.query(
-        `UPDATE student_membership_history
-         SET name = $1, email = $2, phone = $3, address = $4, membership_start = $5, membership_end = $6, status = $7,
-             total_fee = $8, amount_paid = $9, due_amount = $10, cash = $11, online = $12, security_money = $13,
-             remark = $14, seat_id = $15, shift_id = $16, branch_id = $17, registration_number = $18,
-             father_name = $19, aadhar_number = $20, changed_at = NOW()
-         WHERE id = (SELECT id FROM student_membership_history WHERE student_id = $21 ORDER BY id DESC LIMIT 1)`,
-         [
-           updatedStudent.name, updatedStudent.email, updatedStudent.phone, updatedStudent.address,
-           updatedStudent.membership_start, updatedStudent.membership_end, updatedStudent.status,
-           updatedStudent.total_fee, updatedStudent.amount_paid, updatedStudent.due_amount,
-           updatedStudent.cash, updatedStudent.online, updatedStudent.security_money, updatedStudent.remark || '',
-           seatIdNum, firstShiftId, updatedStudent.branch_id, updatedStudent.registration_number,
-           updatedStudent.father_name, updatedStudent.aadhar_number,
-           id // student_id for the WHERE clause
-         ]
-      );
-      
-      await client.query('COMMIT');
-      res.json({ student: updatedStudent });
-    } catch (err) {
+    if (!name || !phone || !address || !branch_id || !membership_start || !membership_end) {
       await client.query('ROLLBACK');
-      console.error('Error updating student:', err);
-      res.status(500).json({ message: 'Server error', error: err.message });
-    } finally {
-      client.release();
+      return res.status(400).json({ message: 'Required fields missing' });
     }
-  });
 
+    const seatIdNum = seat_id ? parseInt(seat_id, 10) : null;
+    const shiftIdsNum = shift_ids && Array.isArray(shift_ids) ? shift_ids.map(sid => parseInt(sid, 10)) : [];
+
+    const dueAmountValue = parseFloat(total_fee) - parseFloat(amount_paid);
+    const status = new Date(membership_end) < new Date() ? 'expired' : 'active';
+
+    // Update students table
+    const result = await client.query(
+      `UPDATE students 
+       SET name = $1, email = $2, phone = $3, address = $4, branch_id = $5,
+           membership_start = $6, membership_end = $7, total_fee = $8, 
+           amount_paid = $9, due_amount = $10, cash = $11, online = $12, 
+           security_money = $13, remark = $14, status = $15,
+           registration_number = $16, father_name = $17, aadhar_number = $18, profile_image_url = $19
+       WHERE id = $20
+       RETURNING *`,
+      [
+        name, email, phone, address, branch_id, membership_start, membership_end,
+        total_fee, amount_paid, dueAmountValue, cash, online,
+        security_money, remark || null, status,
+        registration_number || null, father_name || null, aadhar_number || null, profile_image_url || null,
+        id
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    const updatedStudent = result.rows[0];
+
+    // Update seat assignments
+    let firstShiftId = null;
+    await client.query('DELETE FROM seat_assignments WHERE student_id = $1', [id]);
+    if (shiftIdsNum.length > 0) {
+      for (const shiftId of shiftIdsNum) {
+        await client.query(
+          'INSERT INTO seat_assignments (seat_id, shift_id, student_id) VALUES ($1, $2, $3)',
+          [seatIdNum, shiftId, id]
+        );
+        if (!firstShiftId) firstShiftId = shiftId;
+      }
+    }
+
+    // ✅ Update latest membership history WITHOUT touching changed_at
+    await client.query(
+      `UPDATE student_membership_history
+       SET name = $1, email = $2, phone = $3, address = $4, membership_start = $5, membership_end = $6, status = $7,
+           total_fee = $8, amount_paid = $9, due_amount = $10, cash = $11, online = $12, security_money = $13,
+           remark = $14, seat_id = $15, shift_id = $16, branch_id = $17, registration_number = $18,
+           father_name = $19, aadhar_number = $20
+       WHERE id = (
+         SELECT id FROM student_membership_history 
+         WHERE student_id = $21 
+         ORDER BY id DESC LIMIT 1
+       )`,
+      [
+        updatedStudent.name, updatedStudent.email, updatedStudent.phone, updatedStudent.address,
+        updatedStudent.membership_start, updatedStudent.membership_end, updatedStudent.status,
+        updatedStudent.total_fee, updatedStudent.amount_paid, updatedStudent.due_amount,
+        updatedStudent.cash, updatedStudent.online, updatedStudent.security_money, updatedStudent.remark || '',
+        seatIdNum, firstShiftId, updatedStudent.branch_id, updatedStudent.registration_number,
+        updatedStudent.father_name, updatedStudent.aadhar_number,
+        id
+      ]
+    );
+
+    await client.query('COMMIT');
+    res.json({ student: updatedStudent });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error updating student:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
 
   // DELETE a student
   router.delete('/:id', checkAdminOrStaff, async (req, res) => {
