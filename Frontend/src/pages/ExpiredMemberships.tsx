@@ -3,7 +3,7 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import api from '../services/api';
-import { Search, ChevronLeft, ChevronRight, Trash2, Eye } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Trash2, Eye, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -318,10 +318,22 @@ const ExpiredMemberships = () => {
                         <TableCell>{student.phone}</TableCell>
                         <TableCell>{formatDate(student.membershipEnd)}</TableCell>
                         <TableCell className="space-x-2">
+                          {student.phone && (
+                            <Button
+                              onClick={() => {
+                                const cleanedPhone = student.phone.replace(/\s+/g, '');
+                                const whatsappUrl = `https://wa.me/${cleanedPhone.startsWith('91') ? cleanedPhone : '91' + cleanedPhone}`;
+                                window.open(whatsappUrl, '_blank');
+                              }}
+                              variant="outline"
+                            >
+                              <MessageSquare size={16} />
+                            </Button>
+                          )}
                           <Button onClick={() => navigate(`/students/${student.id}`)} variant="outline">
                             <Eye size={16} />
                           </Button>
-                                                    {(user?.role === 'admin' || user?.role === 'staff') && (
+                          {(user?.role === 'admin' || user?.role === 'staff') && (
                             <Button onClick={() => handleRenewClick(student)}>
                               <ChevronRight size={16} /> Renew
                             </Button>
