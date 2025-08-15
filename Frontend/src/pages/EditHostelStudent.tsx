@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import HostelStudentForm from '../components/HostelStudentForm';
 import { toast } from 'sonner';
-import { ArrowLeft } from 'lucide-react'; // Assuming you have lucide-react installed
+import { ArrowLeft } from 'lucide-react';
 
 const EditHostelStudent: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -47,31 +47,20 @@ const EditHostelStudent: React.FC = () => {
   if (!studentData || !studentData.student) return <div className="p-6">Student data not found.</div>;
 
   // Prepare initialData for the form
-  // The form expects flat data, including fields that might come from the latest history entry
-  // for display convenience (like stay_start_date, total_fee for the *current* period).
-  // However, when SUBMITTING an edit, HostelStudentForm only sends student-table related fields
-  // and hostel_students PUT route should only update hostel_students table.
-  
-  const studentDetails = studentData.student; // This is the object with keys from hostel_students table
+  // The form expects camelCased keys (stayStartDate, totalFee etc.) and securityMoney fields
+  const studentDetails = studentData.student; // now includes securityMoney, securityMoneyCash, securityMoneyOnline
   const latestHistory = studentData.history && studentData.history.length > 0 ? studentData.history[0] : {};
 
   const formInitialData = {
-    ...studentDetails, // Contains branch_id, name, address, security_money, etc. (already camelCased by api.ts)
-    // For fields typically part of a "stay period" that HostelStudentForm might display:
-    // These are for display in the form if it has these fields for the current/latest period.
-    // The actual update logic in the backend should decide what it updates.
+    ...studentDetails, // Contains branchId, name, address, securityMoney, securityMoneyCash, securityMoneyOnline, etc.
+    // Provide display fields for the latest history period
     stayStartDate: latestHistory.stayStartDate || '',
     stayEndDate: latestHistory.stayEndDate || '',
     totalFee: latestHistory.totalFee?.toString() || '',
     cashPaid: latestHistory.cashPaid?.toString() || '',
     onlinePaid: latestHistory.onlinePaid?.toString() || '',
-    // roomNumber: latestHistory.roomNumber || studentDetails.roomNumber || '', // Prefer student's current room for edit
-    // remark: latestHistory.remark || studentDetails.remark || '', // Prefer student's main remark for edit
+    // If your HostelStudentForm expects different keys, adapt accordingly
   };
-  // Ensure branchId is correctly passed (HostelStudentForm expects branchId or branch_id)
-  // If studentDetails.branchId is present (after camelCasing), it's used.
-  // If backend sends branch_id, and api.ts camelCases it to branchId, it's fine.
-  // HostelStudentForm's useState for branchId already handles initialData.branch_id or initialData.branchId
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -90,7 +79,7 @@ const EditHostelStudent: React.FC = () => {
         <HostelStudentForm
           branches={branches || []}
           onSubmit={updateStudentMutation.mutate}
-          initialData={formInitialData} // Pass the combined/prepared data
+          initialData={formInitialData}
         />
       </div>
     </div>

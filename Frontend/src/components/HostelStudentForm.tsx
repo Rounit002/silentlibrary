@@ -26,7 +26,9 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
   const [religion, setReligion] = useState(initialData?.religion || '');
   const [foodPreference, setFoodPreference] = useState(initialData?.foodPreference || initialData?.food_preference || '');
   const [gender, setGender] = useState(initialData?.gender || '');
-  const [securityMoney, setSecurityMoney] = useState(initialData?.securityMoney?.toString() || initialData?.security_money?.toString() || '');
+  const [securityMoneyCash, setSecurityMoneyCash] = useState(initialData?.security_money_cash?.toString() || '');
+  const [securityMoneyOnline, setSecurityMoneyOnline] = useState(initialData?.security_money_online?.toString() || '');
+  const [totalSecurityMoney, setTotalSecurityMoney] = useState(0);
   const [registrationNumber, setRegistrationNumber] = useState(initialData?.registrationNumber || initialData?.registration_number || '');
   const [stayStartDate, setStayStartDate] = useState(initialData?.stayStartDate || initialData?.stay_start_date || '');
   const [stayEndDate, setStayEndDate] = useState(initialData?.stayEndDate || initialData?.stay_end_date || '');
@@ -49,6 +51,12 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
   }, [totalFee, cashPaid, onlinePaid]);
 
   useEffect(() => {
+    const cashValue = parseFloat(securityMoneyCash) || 0;
+    const onlineValue = parseFloat(securityMoneyOnline) || 0;
+    setTotalSecurityMoney(cashValue + onlineValue);
+  }, [securityMoneyCash, securityMoneyOnline]);
+
+  useEffect(() => {
     if (initialData) {
         setBranchId(initialData.branchId || initialData.branch_id || (branches && branches.length > 0 && !initialData.branch_id && !initialData.branchId ? branches[0].id : ''));
         setName(initialData.name || '');
@@ -62,7 +70,8 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
         setReligion(initialData.religion || '');
         setFoodPreference(initialData.foodPreference || initialData.food_preference || '');
         setGender(initialData.gender || '');
-        setSecurityMoney(initialData.securityMoney?.toString() || initialData.security_money?.toString() || '');
+        setSecurityMoneyCash(initialData.security_money_cash?.toString() || '');
+        setSecurityMoneyOnline(initialData.security_money_online?.toString() || '');
         setRegistrationNumber(initialData.registrationNumber || initialData.registration_number || '');
         setStayStartDate(initialData.stayStartDate || initialData.stay_start_date || '');
         setStayEndDate(initialData.stayEndDate || initialData.stay_end_date || '');
@@ -119,9 +128,13 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
     if (onlinePaid && (isNaN(onlinePaidNum) || onlinePaidNum < 0)) {
       errors.push('Online Paid must be a non-negative number');
     }
-    const securityMoneyNum = parseFloat(securityMoney);
-    if (securityMoney && (isNaN(securityMoneyNum) || securityMoneyNum < 0)) {
-      errors.push('Security Money must be a non-negative number');
+    const securityMoneyCashNum = parseFloat(securityMoneyCash);
+    if (securityMoneyCash && (isNaN(securityMoneyCashNum) || securityMoneyCashNum < 0)) {
+      errors.push('Security Money (Cash) must be a non-negative number');
+    }
+    const securityMoneyOnlineNum = parseFloat(securityMoneyOnline);
+    if (securityMoneyOnline && (isNaN(securityMoneyOnlineNum) || securityMoneyOnlineNum < 0)) {
+      errors.push('Security Money (Online) must be a non-negative number');
     }
     if (aadharNumber && !/^\d{12}$/.test(aadharNumber)) {
       errors.push('Aadhar Number must be a 12-digit number');
@@ -148,7 +161,8 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
       religion: religion.trim(),
       food_preference: foodPreference,
       gender: gender,
-      security_money: securityMoney ? parseFloat(securityMoney) : 0.0,
+      security_money_cash: securityMoneyCash ? parseFloat(securityMoneyCash) : 0.0,
+      security_money_online: securityMoneyOnline ? parseFloat(securityMoneyOnline) : 0.0,
       registration_number: registrationNumber.trim() || null,
       stay_start_date: stayStartDate,
       stay_end_date: stayEndDate,
@@ -178,7 +192,8 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
         setReligion('');
         setFoodPreference('');
         setGender('');
-        setSecurityMoney('');
+        setSecurityMoneyCash('');
+        setSecurityMoneyOnline('');
         setRegistrationNumber('');
         setStayStartDate('');
         setStayEndDate('');
@@ -340,13 +355,32 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Security Money (in INR)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Security Money (Cash)</label>
           <input
             type="number"
             step="0.01"
-            value={securityMoney}
-            onChange={(e) => setSecurityMoney(e.target.value)}
+            value={securityMoneyCash}
+            onChange={(e) => setSecurityMoneyCash(e.target.value)}
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 transition-colors"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Security Money (Online)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={securityMoneyOnline}
+            onChange={(e) => setSecurityMoneyOnline(e.target.value)}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 transition-colors"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Total Security Money</label>
+          <input
+            type="text"
+            value={`₹${totalSecurityMoney.toFixed(2)}`}
+            readOnly
+            className="block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm sm:text-sm p-2 transition-colors"
           />
         </div>
         <div>

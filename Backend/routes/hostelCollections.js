@@ -5,6 +5,8 @@ module.exports = (pool) => {
 
   router.get('/', checkAdminOrStaff, async (req, res) => {
     try {
+      // NOTE: This query has been changed. It now assumes the 'hostel_student_history' table (aliased as hsh)
+      // contains 'security_money_cash' and 'security_money_online' columns for each record.
       let queryText = `
         SELECT 
           hsh.id as history_id,
@@ -15,13 +17,14 @@ module.exports = (pool) => {
           hs.phone_number as student_phone_number,
           hs.registration_number as student_registration_number,
           hs.room_number as student_current_room_number,
-          hs.security_money as student_security_money, -- <<< ADDED SECURITY MONEY
           hsh.stay_start_date,
           hsh.stay_end_date,
           hsh.total_fee,
           hsh.cash_paid,
           hsh.online_paid,
           hsh.due_amount,
+          hsh.security_money_cash,    -- <<< ADDED from history table
+          hsh.security_money_online,  -- <<< ADDED from history table
           hsh.room_number as history_room_number, 
           hsh.remark as history_remark,
           hsh.created_at as history_created_at,
@@ -72,8 +75,8 @@ module.exports = (pool) => {
       console.log('[hostelCollections.js GET] Executing query:', queryText, queryParams);
       const result = await pool.query(queryText, queryParams);
       
-      // Backend sends snake_case keys; api.ts response interceptor converts to camelCase.
-      // The mapping in HostelCollectionDue.tsx will expect camelCase.
+      // The API response will now include 'security_money_cash' and 'security_money_online' for each history record.
+      // The frontend interceptor will convert these to camelCase.
       res.json({ collections: result.rows });
     } catch (err) {
       console.error('[hostelCollections.js GET] Error fetching hostel collections:', err.stack);
