@@ -46,12 +46,12 @@ module.exports = (pool) => {
         }
         
         const firstDayOfMonth = new Date(year, month - 1, 1);
-        const lastDayOfMonth = new Date(year, month, 0); 
+        const firstDayOfNextMonth = new Date(year, month, 1); 
 
         conditions.push(
-          `(hsh.created_at >= $${queryParams.length + 1} AND hsh.created_at <= $${queryParams.length + 2})`
+          `(hsh.created_at >= $${queryParams.length + 1} AND hsh.created_at < $${queryParams.length + 2})`
         );
-        queryParams.push(firstDayOfMonth.toISOString().split('T')[0], lastDayOfMonth.toISOString().split('T')[0]);
+        queryParams.push(firstDayOfMonth.toISOString().split('T')[0], firstDayOfNextMonth.toISOString().split('T')[0]);
       }
 
       if (req.query.branch_id && String(req.query.branch_id).trim() !== '') {

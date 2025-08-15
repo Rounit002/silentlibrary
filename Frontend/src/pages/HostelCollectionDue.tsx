@@ -38,6 +38,7 @@ const HostelCollectionDue: React.FC = () => {
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [filteredCollections, setFilteredCollections] = useState<Collection[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
@@ -113,28 +114,45 @@ const HostelCollectionDue: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchCollectionsData(selectedMonth, selectedBranchId);
-  }, [selectedMonth, selectedBranchId]);
+    // If a specific date is selected, derive the month from it and fetch data.
+    // Otherwise, use the selectedMonth from the month picker.
+    const monthToFetch = selectedDate ? selectedDate.slice(0, 7) : selectedMonth;
+    fetchCollectionsData(monthToFetch, selectedBranchId);
+  }, [selectedMonth, selectedDate, selectedBranchId]);
 
   useEffect(() => {
     setFilteredCollections(
       collections.filter(col => {
         const name = col.studentName ?? ''; 
-        // const roomHist = col.historyRoomNumber ?? ''; // Removed
         const currentRoom = col.studentCurrentRoomNumber ?? '';
         const regNo = col.studentRegistrationNumber ?? '';
         const phone = col.studentPhoneNumber ?? '';
         const branch = col.branchName ?? '';
         const searchTermLower = searchTerm.toLowerCase();
-        return name.toLowerCase().includes(searchTermLower) || 
-              //  roomHist.toLowerCase().includes(searchTermLower) || // Removed
+        const matchesSearch = name.toLowerCase().includes(searchTermLower) || 
                currentRoom.toLowerCase().includes(searchTermLower) ||
                regNo.toLowerCase().includes(searchTermLower) ||
                branch.toLowerCase().includes(searchTermLower) ||
                phone.includes(searchTermLower);
+        
+        const createdAtDate = col.historyCreatedAt ? new Date(col.historyCreatedAt) : null;
+
+        let matchesDateFilter = true;
+        if (selectedDate) {
+          // If a specific date is selected, only filter by that date.
+          const yyyy = createdAtDate.getFullYear();
+          const mm = String(createdAtDate.getMonth() + 1).padStart(2, '0');
+          const dd = String(createdAtDate.getDate()).padStart(2, '0');
+          matchesDateFilter = `${yyyy}-${mm}-${dd}` === selectedDate;
+        } else {
+          // Otherwise, filter by the selected month.
+          matchesDateFilter = !selectedMonth || !createdAtDate || (`${createdAtDate.getFullYear()}-${String(createdAtDate.getMonth() + 1).padStart(2, '0')}` === selectedMonth);
+        }
+
+        return matchesSearch && matchesDateFilter;
       })
     );
-  }, [collections, searchTerm]);
+  }, [collections, searchTerm, selectedMonth, selectedDate]);
 
   const totalRecords = filteredCollections.length;
   const totalCollected = filteredCollections.reduce((sum, c) => sum + c.cashPaid + c.onlinePaid, 0);
@@ -214,7 +232,7 @@ const HostelCollectionDue: React.FC = () => {
           </p>
 
           <motion.div
-            className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4"
+            className="mb-6 flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, duration: 0.3 }}
@@ -224,12 +242,21 @@ const HostelCollectionDue: React.FC = () => {
               placeholder="Search by Name, Room, Reg No, Phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="md:col-span-1 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-300 text-sm md:text-base"
+              className="flex-1 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-300 text-sm md:text-base"
             />
             <input
               type="month"
               value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
+              onChange={(e) => {
+                setSelectedMonth(e.target.value);
+                setSelectedDate(''); // Reset date when month changes
+              }}
+              className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-300 text-sm md:text-base"
+            />
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
               className="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-300 text-sm md:text-base"
             />
             <select
