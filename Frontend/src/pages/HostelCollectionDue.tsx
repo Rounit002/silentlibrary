@@ -155,7 +155,7 @@ const HostelCollectionDue: React.FC = () => {
   }, [collections, searchTerm, selectedMonth, selectedDate]);
 
   const totalRecords = filteredCollections.length;
-  const totalCollected = filteredCollections.reduce((sum, c) => sum + c.cashPaid + c.onlinePaid, 0);
+  const totalCollected = filteredCollections.reduce((sum, c) => sum + c.cashPaid + c.onlinePaid + (c.studentSecurityMoney || 0), 0);
   const totalDue = filteredCollections.reduce((sum, c) => sum + c.dueAmount, 0);
   const totalCash = filteredCollections.reduce((sum, c) => sum + c.cashPaid, 0);
   const totalOnline = filteredCollections.reduce((sum, c) => sum + c.onlinePaid, 0);
