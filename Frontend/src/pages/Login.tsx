@@ -103,7 +103,7 @@ const Login = () => {
           </form>
 
           <div className="mt-8 text-center text-sm text-gray-700">
-            <p>Silent Library</p>
+            <p>Silent Library, Patna</p>
           </div>
         </div>
       </div>
