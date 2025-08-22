@@ -34,14 +34,6 @@ if (process.env.NODE_ENV !== 'production') {
 // Allow specific origins and methods, and handle credentials
 // This is a more secure CORS setup that allows only specific origins
 // Adjust the allowedOrigins array as needed for your deployment
-// Note: 'file://' is included to allow local file access during development
-// If you need to allow all origins, you can set origin: '*' but be cautious with that in production
-// For production, you should specify the exact origins that are allowed to access your API.
-// This prevents unauthorized domains from making requests to your API.
-// The 'credentials' option allows cookies to be sent with requests, which is necessary for session
-// management and authentication.
-// This setup is more secure than allowing all origins and is recommended for production environments.  
-
 app.use(cors({
   origin: function (origin, callback) {
     const allowedOrigins = [
