@@ -18,6 +18,7 @@ module.exports = (pool) => {
           smh.security_money,
           smh.remark,
           smh.changed_at as created_at,
+          smh.payment_date as payment_date,
           smh.branch_id,
           b.name as branch_name
         FROM student_membership_history smh
@@ -63,6 +64,7 @@ module.exports = (pool) => {
         securityMoney: row.security_money !== null && row.security_money !== undefined ? parseFloat(row.security_money) : 0,
         remark: row.remark || '',
         createdAt: row.created_at,
+        paymentDate: row.payment_date,
         branchId: row.branch_id,
         branchName: row.branch_name
       }));
@@ -167,6 +169,7 @@ module.exports = (pool) => {
           smh.security_money,
           smh.remark,
           smh.changed_at as created_at,
+          smh.changed_at as payment_date,
           smh.branch_id,
           b.name as branch_name
         FROM student_membership_history smh
@@ -194,6 +197,7 @@ module.exports = (pool) => {
           securityMoney: parseFloat(updatedHistory.security_money) || 0,
           remark: updatedHistory.remark || '',
           createdAt: updatedHistory.created_at,
+          paymentDate: updatedHistory.payment_date,
           branchId: updatedHistory.branch_id,
           branchName: updatedHistory.branch_name
         }

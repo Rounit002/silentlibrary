@@ -260,6 +260,12 @@ router.get('/expiring-soon', checkAdminOrStaff, async (req, res) => {
         return res.status(404).json({ message: 'Student not found' });
       }
       const studentData = result.rows[0];
+      // Fetch latest payment date from membership history (use payment_date column)
+      const lastPaymentRes = await pool.query(
+        'SELECT payment_date FROM student_membership_history WHERE student_id = $1 ORDER BY id DESC LIMIT 1',
+        [id]
+      );
+      const payment_date = lastPaymentRes.rows[0]?.payment_date || null;
       const assignments = await pool.query(`
         SELECT sa.seat_id, sa.shift_id, seats.seat_number, sch.title AS shift_title
         FROM seat_assignments sa
@@ -278,6 +284,7 @@ router.get('/expiring-soon', checkAdminOrStaff, async (req, res) => {
         online: parseFloat(studentData.online || 0),
         security_money: parseFloat(studentData.security_money || 0),
         remark: studentData.remark || '',
+        payment_date,
         assignments: assignments.rows
       });
     } catch (err) {
@@ -748,8 +755,11 @@ router.put('/:id', checkAdminOrStaff, async (req, res) => {
         cash,
         online,
         security_money: securityMoney,
-        remark
+        remark,
+        payment_date
       } = req.body;
+      // Also accept camelCase just in case
+      const paymentDateInput = payment_date || req.body.paymentDate || null;
       // FIX END
 
       // The rest of the function uses the camelCase variables, which are now correctly populated.
@@ -835,8 +845,16 @@ router.put('/:id', checkAdminOrStaff, async (req, res) => {
           cash, online, security_money, remark,
           seat_id, shift_id, branch_id,
           registration_number, father_name, aadhar_number,
-          changed_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW())`,
+          changed_at, payment_date
+        ) VALUES (
+          $1, $2, $3, $4, $5,
+          $6, $7, $8,
+          $9, $10, $11,
+          $12, $13, $14, $15,
+          $16, $17, $18,
+          $19, $20, $21,
+          NOW(), $22::timestamp
+        )`,
         [
           updated.id, updated.name, updated.email, updated.phone, updated.address,
           updated.membership_start, updated.membership_end, updated.status,
@@ -844,6 +862,7 @@ router.put('/:id', checkAdminOrStaff, async (req, res) => {
           updated.cash, updated.online, updated.security_money, updated.remark || '',
           seatIdNum, firstShiftId, branchIdNum,
           updated.registration_number, updated.father_name, updated.aadhar_number,
+          paymentDateInput
         ]
       );
 

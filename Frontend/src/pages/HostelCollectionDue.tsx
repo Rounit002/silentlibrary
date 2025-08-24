@@ -293,6 +293,7 @@ const HostelCollectionDue: React.FC = () => {
                     <th className="px-3 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Due Amount</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Remark (H)</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Created (H)</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date of Payment (H)</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -316,6 +317,7 @@ const HostelCollectionDue: React.FC = () => {
                         <td className={`px-3 py-4 whitespace-nowrap text-right font-semibold ${collection.dueAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>₹{collection.dueAmount.toFixed(2)}</td>
                         <td className="px-3 py-4 whitespace-nowrap truncate max-w-xs" title={collection.historyRemark || ''}>{collection.historyRemark || 'N/A'}</td>
                         <td className="px-3 py-4 whitespace-nowrap">{collection.historyCreatedAt ? new Date(collection.historyCreatedAt).toLocaleString() : 'N/A'}</td>
+                        <td className="px-3 py-4 whitespace-nowrap">{collection.historyUpdatedAt ? new Date(collection.historyUpdatedAt).toLocaleString() : 'N/A'}</td>
                         <td className="px-3 py-4 whitespace-nowrap">{collection.dueAmount > 0 && (<button onClick={() => handlePayDue(collection)} className="text-purple-600 hover:text-purple-800 font-medium">Pay Due</button>)}</td>
                       </motion.tr>
                     ))

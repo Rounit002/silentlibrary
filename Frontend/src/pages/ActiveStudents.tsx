@@ -3,7 +3,7 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import api from '../services/api';
-import { Search, ChevronLeft, ChevronRight, Trash2, Eye } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Trash2, Eye, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -38,6 +38,28 @@ const ActiveStudents = () => {
   const [studentsPerPage, setStudentsPerPage] = useState(10);
   const [isCollapsed, setIsCollapsed] = useState(false); // Added for Sidebar
   const navigate = useNavigate();
+
+  // Normalize Indian phone number to wa.me format
+  const buildWhatsAppUrl = (phone: string | undefined | null): string | null => {
+    if (!phone) return null;
+    const digits = phone.replace(/\D/g, '');
+    let num = digits;
+    if (num.startsWith('91') && num.length === 12) {
+      // already correct
+    } else if (num.length === 10) {
+      num = '91' + num;
+    } else if (num.startsWith('0') && num.length === 11) {
+      num = '91' + num.slice(1);
+    } else if (num.startsWith('91') && num.length > 12) {
+      // keep last 10 as local number
+      num = '91' + num.slice(-10);
+    } else if (num.length > 10) {
+      num = '91' + num.slice(-10);
+    } else {
+      return null;
+    }
+    return `https://wa.me/${num}`;
+  };
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -134,7 +156,7 @@ const ActiveStudents = () => {
                           <TableHead className="hidden md:table-cell">Phone</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead className="hidden md:table-cell">Membership End</TableHead>
-                          <TableHead>Actions</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -154,19 +176,46 @@ const ActiveStudents = () => {
                                 </span>
                               </TableCell>
                               <TableCell className="hidden md:table-cell">{formatDate(student.membershipEnd)}</TableCell>
-                              <TableCell>
-                                <button
-                                  onClick={() => handleViewDetails(student.id)}
-                                  className="mr-2 text-blue-600 hover:text-blue-800 p-2"
-                                >
-                                  <Eye size={16} />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(student.id)}
-                                  className="text-red-600 hover:text-red-800 p-2"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
+                              <TableCell className="text-right">
+                                <div className="inline-flex items-center gap-1 md:gap-2">
+                                  {/* WhatsApp chat */}
+                                  {(() => {
+                                    const waUrl = buildWhatsAppUrl(student.phone);
+                                    return waUrl ? (
+                                      <a
+                                        href={waUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-2 rounded hover:bg-gray-100 text-green-600 hover:text-green-800 inline-flex items-center justify-center"
+                                        title={`Chat on WhatsApp`}
+                                      >
+                                        <MessageCircle size={16} />
+                                      </a>
+                                    ) : (
+                                      <button
+                                        className="p-2 rounded text-gray-400 cursor-not-allowed inline-flex items-center justify-center"
+                                        title="Invalid phone number"
+                                        disabled
+                                      >
+                                        <MessageCircle size={16} />
+                                      </button>
+                                    );
+                                  })()}
+                                  <button
+                                    onClick={() => handleViewDetails(student.id)}
+                                    className="p-2 rounded hover:bg-gray-100 text-blue-600 hover:text-blue-800 inline-flex items-center justify-center"
+                                    title="View details"
+                                  >
+                                    <Eye size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(student.id)}
+                                    className="p-2 rounded hover:bg-gray-100 text-red-600 hover:text-red-800 inline-flex items-center justify-center"
+                                    title="Delete student"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))

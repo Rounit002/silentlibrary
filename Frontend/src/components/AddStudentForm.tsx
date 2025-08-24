@@ -38,8 +38,6 @@ interface SelectOption {
 interface FormData {
   name: string;
   registrationNumber: string;
-  fatherName: string;
-  aadharNumber: string;
   email: string;
   phone: string;
   address: string;
@@ -51,7 +49,6 @@ interface FormData {
   totalFee: string;
   cash: string;
   online: string;
-  securityMoney: string;
   remark: string;
   image: File | null;
   imageUrl: string;
@@ -62,8 +59,6 @@ const AddStudentForm: React.FC = () => {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     registrationNumber: '',
-    fatherName: '',
-    aadharNumber: '',
     email: '',
     phone: '',
     address: '',
@@ -75,7 +70,6 @@ const AddStudentForm: React.FC = () => {
     totalFee: '',
     cash: '',
     online: '',
-    securityMoney: '',
     remark: '',
     image: null,
     imageUrl: '',
@@ -232,8 +226,6 @@ const AddStudentForm: React.FC = () => {
       const studentData = {
         name: formData.name,
         registrationNumber: formData.registrationNumber,
-        fatherName: formData.fatherName,
-        aadharNumber: formData.aadharNumber,
         email: formData.email,
         phone: formData.phone,
         address: formData.address.trim() || '',
@@ -246,7 +238,6 @@ const AddStudentForm: React.FC = () => {
         amountPaid: (parseFloat(formData.cash) || 0) + (parseFloat(formData.online) || 0),
         cash: parseFloat(formData.cash) || 0,
         online: parseFloat(formData.online) || 0,
-        securityMoney: parseFloat(formData.securityMoney) || 0,
         remark: formData.remark || '',
         profileImageUrl: imageUrl,
       };
@@ -296,30 +287,6 @@ const AddStudentForm: React.FC = () => {
           />
         </div>
         <div>
-          <label htmlFor="fatherName" className="block text-sm font-medium text-gray-700 mb-1">
-            Father's Name
-          </label>
-          <input
-            type="text"
-            id="fatherName"
-            name="fatherName"
-            value={formData.fatherName}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
-          />
-        </div>
-        <div>
-          <label htmlFor="aadharNumber" className="block text-sm font-medium text-gray-700 mb-1">
-            Aadhar Number
-          </label>
-          <input
-            type="text"
-            id="aadharNumber"
-            name="aadharNumber"
-            value={formData.aadharNumber}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
-          />
         </div>
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -469,21 +436,7 @@ const AddStudentForm: React.FC = () => {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
           />
         </div>
-        <div>
-          <label htmlFor="securityMoney" className="block text-sm font-medium text-gray-700 mb-1">
-            Security Money
-          </label>
-          <input
-            type="number"
-            id="securityMoney"
-            name="securityMoney"
-            value={formData.securityMoney}
-            onChange={handleChange}
-            step="0.01"
-            min="0"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
-          />
-        </div>
+        
         <div>
           <label htmlFor="amountPaid" className="block text-sm font-medium text-gray-700 mb-1">
             Total Amount Paid

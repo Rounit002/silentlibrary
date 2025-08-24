@@ -12,8 +12,6 @@ interface Student {
   id: number;
   name: string;
   registrationNumber?: string | null;
-  fatherName?: string | null;
-  aadharNumber?: string | null;
   email: string;
   phone: string;
   address: string;
@@ -27,10 +25,10 @@ interface Student {
   dueAmount: number;
   cash: number;
   online: number;
-  securityMoney: number;
   remark?: string | null;
   profileImageUrl?: string | null;
   createdAt: string;
+  paymentDate?: string | null;
   assignments?: Array<{
     seatId: number;
     shiftId: number;
@@ -79,7 +77,6 @@ const StudentDetails: React.FC = () => {
           dueAmount: studentData.dueAmount,
           cash: studentData.cash,
           online: studentData.online,
-          securityMoney: studentData.securityMoney ?? 0,
         });
 
         setError(null);
@@ -232,12 +229,10 @@ const StudentDetails: React.FC = () => {
                     <p className="text-gray-600">{student.registrationNumber || 'N/A'}</p>
                   </div>
                   <div>
-                    <h2 className="text-lg font-medium">Father's Name</h2>
-                    <p className="text-gray-600">{student.fatherName || 'N/A'}</p>
+                    {/* Removed Father's Name */}
                   </div>
                   <div>
-                    <h2 className="text-lg font-medium">Aadhar Number</h2>
-                    <p className="text-gray-600">{student.aadharNumber || 'N/A'}</p>
+                    {/* Removed Aadhar Number */}
                   </div>
                   <div>
                     <h2 className="text-lg font-medium">Email</h2>
@@ -310,10 +305,11 @@ const StudentDetails: React.FC = () => {
                     </p>
                   </div>
                   <div>
-                    <h2 className="text-lg font-medium">Security Money</h2>
-                    <p className="text-gray-600">
-                      {student.securityMoney !== undefined && student.securityMoney !== null ? `Rs. ${student.securityMoney.toFixed(2)}` : 'N/A'}
-                    </p>
+                    <h2 className="text-lg font-medium">Date of Payment</h2>
+                    <p className="text-gray-600">{formatDate(student.paymentDate || undefined)}</p>
+                  </div>
+                  <div>
+                    {/* Removed Security Money */}
                   </div>
                   <div>
                     <h2 className="text-lg font-medium">Created At</h2>

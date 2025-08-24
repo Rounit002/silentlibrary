@@ -15,11 +15,11 @@ interface Collection {
   dueAmount: number;
   cash: number;
   online: number;
-  securityMoney: number;
   remark: string;
   createdAt: string | null;
   branchId?: number;
   branchName?: string;
+  paymentDate?: string | null;
 }
 
 interface Branch {
@@ -79,9 +79,9 @@ const CollectionDue: React.FC = () => {
           dueAmount: typeof c.dueAmount === 'number' ? c.dueAmount : 0,
           cash: typeof c.cash === 'number' ? c.cash : 0,
           online: typeof c.online === 'number' ? c.online : 0,
-          securityMoney: typeof c.securityMoney === 'number' ? c.securityMoney : 0,
           remark: c.remark || '',
           createdAt: c.createdAt,
+          paymentDate: c.paymentDate ?? null,
           branchId: c.branchId,
           branchName: c.branchName
         }));
@@ -102,9 +102,10 @@ const CollectionDue: React.FC = () => {
   useEffect(() => {
     setFilteredCollections(
       collections.filter(col => {
-        const matchesSearch = col.name.toLowerCase().includes(searchTerm.toLowerCase());
-        
-        const createdAtDate = col.createdAt ? new Date(col.createdAt) : null;
+        const matchesSearch = (col.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+        // Filter strictly by Created At (from changed_at)
+        const createdAtStr = col.createdAt || null;
+        const createdAtDate = createdAtStr ? new Date(createdAtStr) : null;
 
         const matchesMonth = !selectedMonth || !createdAtDate || (
           `${createdAtDate.getFullYear()}-${String(createdAtDate.getMonth() + 1).padStart(2, '0')}` === selectedMonth
@@ -124,7 +125,7 @@ const CollectionDue: React.FC = () => {
   const totalDue = filteredCollections.reduce((sum, c) => sum + c.dueAmount, 0);
   const totalCash = filteredCollections.reduce((sum, c) => sum + c.cash, 0);
   const totalOnline = filteredCollections.reduce((sum, c) => sum + c.online, 0);
-  const totalSecurityMoney = filteredCollections.reduce((sum, c) => sum + c.securityMoney, 0);
+  // Removed security money aggregation as per requirements
 
   const handlePayDue = (collection: Collection) => {
     setSelectedCollection(collection);
@@ -164,9 +165,9 @@ const CollectionDue: React.FC = () => {
         dueAmount: typeof c.dueAmount === 'number' ? c.dueAmount : 0,
         cash: typeof c.cash === 'number' ? c.cash : 0,
         online: typeof c.online === 'number' ? c.online : 0,
-        securityMoney: typeof c.securityMoney === 'number' ? c.securityMoney : 0,
         remark: c.remark || '',
         createdAt: c.createdAt,
+        paymentDate: c.paymentDate ?? null,
         branchId: c.branchId,
         branchName: c.branchName
       }));
@@ -271,10 +272,6 @@ const CollectionDue: React.FC = () => {
                   <h3 className="text-sm font-medium text-gray-500">Total Online Collected</h3>
                   <p className="text-xl font-bold text-green-600">₹{totalOnline.toFixed(2)}</p>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow-sm border">
-                  <h3 className="text-sm font-medium text-gray-500">Total Security Money</h3>
-                  <p className="text-xl font-bold text-blue-600">₹{totalSecurityMoney.toFixed(2)}</p>
-                </div>
               </motion.div>
             )}
 
@@ -288,11 +285,12 @@ const CollectionDue: React.FC = () => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Fee</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cash</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Online</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Security Money</th>
+                    
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Paid</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Amount</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remark</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-blue-700">Created At</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-purple-700">Date of Payment</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -317,12 +315,26 @@ const CollectionDue: React.FC = () => {
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">₹{collection.totalFee.toFixed(2)}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">₹{collection.cash.toFixed(2)}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">₹{collection.online.toFixed(2)}</td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">₹{collection.securityMoney.toFixed(2)}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-green-600">₹{collection.amountPaid.toFixed(2)}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-red-600">₹{collection.dueAmount.toFixed(2)}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{collection.remark || 'N/A'}</td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">
-                          {collection.createdAt ? new Date(collection.createdAt).toLocaleDateString() : 'N/A'}
+                        <td className="px-4 py-4 whitespace-nowrap text-sm">
+                          {collection.createdAt ? (
+                            <span className="inline-block px-2 py-1 rounded-full bg-blue-100 text-blue-800 font-medium">
+                              {new Date(collection.createdAt).toLocaleDateString()}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">N/A</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm">
+                          {collection.paymentDate ? (
+                            <span className="inline-block px-2 py-1 rounded-full bg-purple-100 text-purple-800 font-medium">
+                              {new Date(collection.paymentDate).toLocaleDateString()}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">N/A</span>
+                          )}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm">
                           {collection.dueAmount > 0 && (

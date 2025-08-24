@@ -25,8 +25,6 @@ interface Student {
   id: number;
   name: string;
   registrationNumber?: string | null;
-  fatherName?: string | null;
-  aadharNumber?: string | null;
   email: string;
   phone: string;
   address?: string | null;
@@ -40,7 +38,6 @@ interface Student {
   dueAmount?: number;
   cash?: number;
   online?: number;
-  securityMoney?: number;
   remark?: string | null;
   profileImageUrl?: string | null;
   createdAt?: string;
@@ -74,6 +71,7 @@ const formatDate = (dateString: string | undefined): string => {
 const ExpiredMemberships = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilterBranch, setSelectedFilterBranch] = useState<any>(null);
   const [renewDialogOpen, setRenewDialogOpen] = useState(false);
@@ -84,13 +82,12 @@ const ExpiredMemberships = () => {
   // State for all form fields
   const [nameInput, setNameInput] = useState('');
   const [registrationNumberInput, setRegistrationNumberInput] = useState('');
-  const [fatherNameInput, setFatherNameInput] = useState('');
-  const [aadharNumberInput, setAadharNumberInput] = useState('');
   const [addressInput, setAddressInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
   const [startDate, setStartDate] = useState<Date | undefined>(new Date());
   const [endDate, setEndDate] = useState<Date | undefined>(addMonths(new Date(), 1));
+  const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
   const [shiftOptions, setShiftOptions] = useState<any[]>([]);
   const [seatOptions, setSeatOptions] = useState<any[]>([]);
   const [branchOptions, setBranchOptions] = useState<any[]>([]);
@@ -100,7 +97,6 @@ const ExpiredMemberships = () => {
   const [totalFee, setTotalFee] = useState<string>('');
   const [cash, setCash] = useState<string>('');
   const [online, setOnline] = useState<string>('');
-  const [securityMoney, setSecurityMoney] = useState<string>('');
   const [remark, setRemark] = useState<string>('');
   
   const navigate = useNavigate();
@@ -160,12 +156,11 @@ const ExpiredMemberships = () => {
         // Set new membership dates
         setStartDate(new Date());
         setEndDate(addMonths(new Date(), 1));
+        setPaymentDate(new Date());
 
         // Pre-fill all form fields with the student's existing data
         setNameInput(fullStudentDetails.name || '');
         setRegistrationNumberInput(fullStudentDetails.registrationNumber || '');
-        setFatherNameInput(fullStudentDetails.fatherName || '');
-        setAadharNumberInput(fullStudentDetails.aadharNumber || '');
         setEmailInput(fullStudentDetails.email || '');
         setPhoneInput(fullStudentDetails.phone || '');
         setAddressInput(fullStudentDetails.address || '');
@@ -182,7 +177,6 @@ const ExpiredMemberships = () => {
         setTotalFee(fullStudentDetails.totalFee ? fullStudentDetails.totalFee.toString() : '0');
         setCash(fullStudentDetails.cash ? fullStudentDetails.cash.toString() : '0');
         setOnline(fullStudentDetails.online ? fullStudentDetails.online.toString() : '0');
-        setSecurityMoney(fullStudentDetails.securityMoney ? fullStudentDetails.securityMoney.toString() : '0');
         setRemark(fullStudentDetails.remark || '');
         
         setRenewDialogOpen(true);
@@ -208,11 +202,10 @@ const ExpiredMemberships = () => {
       await api.renewStudent(selectedStudent.id, {
         name: nameInput,
         registrationNumber: registrationNumberInput,
-        fatherName: fatherNameInput,
-        aadharNumber: aadharNumberInput,
         address: addressInput,
         membershipStart: format(startDate, 'yyyy-MM-dd'),
         membershipEnd: format(endDate, 'yyyy-MM-dd'),
+        paymentDate: paymentDate ? format(paymentDate, 'yyyy-MM-dd') : undefined,
         email: emailInput,
         phone: phoneInput,
         branchId: selectedBranch.value,
@@ -221,7 +214,6 @@ const ExpiredMemberships = () => {
         totalFee: parseFloat(totalFee),
         cash: parseFloat(cash) || 0,
         online: parseFloat(online) || 0,
-        securityMoney: parseFloat(securityMoney) || 0,
         remark: remark.trim() || undefined,
       });
 
@@ -267,7 +259,7 @@ const ExpiredMemberships = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+      <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar />
         <div className="p-4 flex-1 overflow-y-auto">
@@ -424,22 +416,10 @@ const ExpiredMemberships = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium">Father's Name</label>
-                <input
-                  className="w-full border rounded px-3 py-2 mt-1"
-                  type="text"
-                  value={fatherNameInput}
-                  onChange={(e) => setFatherNameInput(e.target.value)}
-                />
+                {/* Removed Father's Name field */}
               </div>
               <div>
-                <label className="block text-sm font-medium">Aadhar Number</label>
-                <input
-                  className="w-full border rounded px-3 py-2 mt-1"
-                  type="text"
-                  value={aadharNumberInput}
-                  onChange={(e) => setAadharNumberInput(e.target.value)}
-                />
+                {/* Removed Aadhar Number field */}
               </div>
               <div>
                 <label className="block text-sm font-medium">Address</label>
@@ -457,6 +437,10 @@ const ExpiredMemberships = () => {
               <div>
                 <label className="block text-sm font-medium">End Date</label>
                 <Calendar mode="single" selected={endDate} onSelect={setEndDate} className="rounded-md border"/>
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Date of Payment</label>
+                <Calendar mode="single" selected={paymentDate} onSelect={setPaymentDate} className="rounded-md border"/>
               </div>
               <div>
                 <label className="block text-sm font-medium">Email</label>
@@ -538,15 +522,7 @@ const ExpiredMemberships = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium">Security Money</label>
-                <input
-                  className="w-full border rounded px-3 py-2 mt-1"
-                  type="number"
-                  value={securityMoney}
-                  onChange={(e) => setSecurityMoney(e.target.value)}
-                  min="0"
-                  step="0.01"
-                />
+                {/* Removed Security Money field */}
               </div>
               <div>
                 <label className="block text-sm font-medium">Amount Paid</label>

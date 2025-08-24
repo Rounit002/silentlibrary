@@ -67,8 +67,6 @@ interface Branch {
 interface FormData {
   name: string;
   registrationNumber: string;
-  fatherName: string;
-  aadharNumber: string;
   email: string;
   phone: string;
   address: string;
@@ -80,7 +78,6 @@ interface FormData {
   totalFee: string;
   cash: string;
   online: string;
-  securityMoney: string;
   remark: string;
   image: File | null;
   profileImageUrl: string;
@@ -89,8 +86,6 @@ interface FormData {
 interface UpdateStudentPayload {
   name: string;
   registrationNumber: string;
-  fatherName: string;
-  aadharNumber: string;
   email: string;
   phone: string;
   address: string;
@@ -103,7 +98,6 @@ interface UpdateStudentPayload {
   seatId: number | null;
   cash: number;
   online: number;
-  securityMoney: number;
   remark: string;
   profileImageUrl: string;
 }
@@ -114,8 +108,6 @@ const EditStudentForm: React.FC = () => {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     registrationNumber: '',
-    fatherName: '',
-    aadharNumber: '',
     email: '',
     phone: '',
     address: '',
@@ -127,7 +119,6 @@ const EditStudentForm: React.FC = () => {
     totalFee: '',
     cash: '',
     online: '',
-    securityMoney: '',
     remark: '',
     image: null,
     profileImageUrl: '',
@@ -163,8 +154,6 @@ const EditStudentForm: React.FC = () => {
         setFormData({
           name: student.name || '',
           registrationNumber: student.registrationNumber || '',
-          fatherName: student.fatherName || '',
-          aadharNumber: student.aadharNumber || '',
           email: student.email || '',
           phone: student.phone || '',
           address: student.address || '',
@@ -176,9 +165,6 @@ const EditStudentForm: React.FC = () => {
           totalFee: student.totalFee ? student.totalFee.toString() : '',
           cash: student.cash ? student.cash.toString() : '',
           online: student.online ? student.online.toString() : '',
-          securityMoney: student.securityMoney
-            ? student.securityMoney.toString()
-            : '0',
           remark: student.remark || '',
           image: null,
           profileImageUrl: student.profileImageUrl || '',
@@ -282,7 +268,6 @@ const EditStudentForm: React.FC = () => {
     const totalFeeValue = parseFloat(formData.totalFee) || 0;
     const cashValue = parseFloat(formData.cash) || 0;
     const onlineValue = parseFloat(formData.online) || 0;
-    const securityMoneyValue = parseFloat(formData.securityMoney) || 0;
     const amountPaidValue = cashValue + onlineValue;
     
     const shiftId = formData.shiftId ? parseInt(formData.shiftId, 10) : null;
@@ -307,8 +292,6 @@ const EditStudentForm: React.FC = () => {
       const payload: UpdateStudentPayload = {
         name: formData.name,
         registrationNumber: formData.registrationNumber,
-        fatherName: formData.fatherName,
-        aadharNumber: formData.aadharNumber,
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
@@ -321,7 +304,6 @@ const EditStudentForm: React.FC = () => {
         seatId: formData.seatId,
         cash: cashValue,
         online: onlineValue,
-        securityMoney: securityMoneyValue,
         remark: formData.remark,
         profileImageUrl: imageUrl,
       };
@@ -390,13 +372,11 @@ const EditStudentForm: React.FC = () => {
           </div>
           
           <div>
-            <label htmlFor="fatherName" className="block text-sm font-medium text-gray-700 mb-1">Father's Name</label>
-            <input type="text" id="fatherName" name="fatherName" value={formData.fatherName} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"/>
+            {/* Removed Father's Name field */}
           </div>
 
           <div>
-            <label htmlFor="aadharNumber" className="block text-sm font-medium text-gray-700 mb-1">Aadhar Number</label>
-            <input type="text" id="aadharNumber" name="aadharNumber" value={formData.aadharNumber} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"/>
+            {/* Removed Aadhar Number field */}
           </div>
           
           <div>
@@ -463,8 +443,7 @@ const EditStudentForm: React.FC = () => {
           </div>
           
           <div>
-            <label htmlFor="securityMoney" className="block text-sm font-medium text-gray-700 mb-1">Security Money</label>
-            <input type="number" id="securityMoney" name="securityMoney" value={formData.securityMoney} onChange={handleChange} step="0.01" min="0" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"/>
+            {/* Removed Security Money field */}
           </div>
 
           <div>

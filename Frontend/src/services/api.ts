@@ -36,8 +36,6 @@ interface Student {
   phone: string;
   address: string;
   registrationNumber?: string | null;
-  fatherName?: string | null;
-  aadharNumber?: string | null;
   branchId: number;
   branchName?: string;
   membershipStart: string;
@@ -48,10 +46,10 @@ interface Student {
   dueAmount: number;
   cash: number;
   online: number;
-  securityMoney: number;
   remark: string | null;
   profileImageUrl?: string | null;
   createdAt: string;
+  paymentDate?: string | null;
   assignments?: Array<{
     seatId: number;
     shiftId: number;
@@ -70,9 +68,9 @@ interface Collection {
   dueAmount: number;
   cash: number;
   online: number;
-  securityMoney: number;
   remark: string | null;
   createdAt: string | null;
+  paymentDate?: string | null;
 }
 
 interface Seat {
@@ -526,8 +524,6 @@ const api = {
     phone: string;
     address: string;
     registrationNumber?: string;
-    fatherName?: string;
-    aadharNumber?: string;
     branchId: number;
     membershipStart: string;
     membershipEnd: string;
@@ -537,7 +533,6 @@ const api = {
     seatId?: number;
     cash?: number;
     online?: number;
-    securityMoney?: number;
     remark?: string | null;
     profileImageUrl?: string | null;
   }): Promise<{ student: Student }> => {
@@ -546,7 +541,6 @@ const api = {
         ...studentData,
         cash: studentData.cash ?? 0,
         online: studentData.online ?? 0,
-        securityMoney: studentData.securityMoney ?? 0,
         remark: studentData.remark ?? null,
         profileImageUrl: studentData.profileImageUrl ?? null,
       };
@@ -572,8 +566,6 @@ const api = {
       phone: string;
       address: string;
       registrationNumber?: string;
-      fatherName?: string;
-      aadharNumber?: string;
       branchId: number;
       membershipStart: string;
       membershipEnd: string;
@@ -583,7 +575,6 @@ const api = {
       seatId: number | null;
       cash: number;
       online: number;
-      securityMoney: number;
       remark: string;
       profileImageUrl: string;
       }
@@ -602,20 +593,18 @@ const api = {
     membershipData: {
       name: string;
       registrationNumber?: string;
-      fatherName?: string;
-      aadharNumber?: string;
       address: string;
       email: string;
       phone: string;
       branchId: number;
       membershipStart: string;
       membershipEnd: string;
+      paymentDate?: string;
       shiftIds: number[];
       seatId?: number;
       totalFee: number;
       cash?: number;
       online?: number;
-      securityMoney?: number;
       remark?: string;
     }
   ): Promise<{ message: string; student: Student }> => {
