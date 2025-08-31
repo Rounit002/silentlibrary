@@ -1,0 +1,4 @@
+{"level":"info","message":"Database connected successfully","timestamp":"2025-08-31T20:16:31.618Z"}
+{"level":"info","message":"Session table checked/initialized successfully","timestamp":"2025-08-31T20:16:31.648Z"}
+{"level":"info","message":"Admin user(s) already exist, skipping default admin creation.","timestamp":"2025-08-31T20:16:31.666Z"}
+{"level":"info","message":"Server running on port 3000","timestamp":"2025-08-31T20:16:31.706Z"}
