@@ -1,7 +1,7 @@
 // Sidebar.tsx
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, UserPlus, Building2, Calendar, Clock, Grid, DollarSign, Wallet, ShoppingBag, BarChart2, Settings, ChevronRight, UserCheck, AlertTriangle, Menu, X, LogOut, MapPin, Package, ToggleLeft } from 'lucide-react';
+import { Home, UserPlus, Building2, Calendar, Clock, Grid, DollarSign, Wallet, ShoppingBag, BarChart2, Settings, ChevronRight, UserCheck, AlertTriangle, Menu, X, LogOut, MapPin, Package, ToggleLeft, CreditCard } from 'lucide-react';
 
 // Using a placeholder for the logo as local assets cannot be resolved in this environment.
 const logoUrl = 'https://placehold.co/40x40/E9D5FF/4C1D95?text=SL';
@@ -28,6 +28,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
     { path: '/seats', icon: <Grid size={20} />, label: 'Seats' },
     { path: '/branches', icon: <MapPin size={20} />, label: 'Manage Branches' },
     { path: '/products', icon: <Package size={20} />, label: 'Products' },
+    { path: '/advance-payments', icon: <CreditCard size={20} />, label: 'Advance' },
     { path: '/transactions', icon: <DollarSign size={20} />, label: 'Transactions' },
     { path: '/collections', icon: <Wallet size={20} />, label: 'Collection & Due' },
     { path: '/expenses', icon: <ShoppingBag size={20} />, label: 'Expenses' },

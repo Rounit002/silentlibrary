@@ -37,6 +37,7 @@ import ActiveHostelStudents from './pages/ActiveHostelStudents';
 import InactiveStudents from './pages/InactiveStudents';
 import HostelExpenses from './pages/HostelExpenses'; // <-- IMPORT NEW COMPONENT
 import HostelProfitLoss from './pages/HostelProfitLoss';
+import AdvancePayments from './pages/AdvancePayments';
 
 const queryClient = new QueryClient();
 
@@ -87,6 +88,7 @@ function AppRoutes() {
       <Route path="/profit-loss" element={<ProtectedRoute><ProfitLoss /></ProtectedRoute>} />
       <Route path="/branches" element={<ProtectedRoute><ManageBranches /></ProtectedRoute>} /> 
       <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} /> 
+      <Route path="/advance-payments" element={<ProtectedRoute><AdvancePayments /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

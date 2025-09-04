@@ -17,13 +17,13 @@ module.exports = (pool) => {
   // GET all students (with calculated status, created_at, and seat number)
   router.get('/', checkAdminOrStaff, async (req, res) => {
     try {
-      const { branchId } = req.query;
+      const { branchId, search } = req.query;
       const branchIdNum = branchId ? parseInt(branchId, 10) : null;
       
       let query = `
         SELECT
-          s.id, s.name, s.phone, s.registration_number, s.father_name, s.aadhar_number,
-          s.is_active, -- <-- ADDED is_active field
+          s.id, s.name, s.phone, s.registration_number, s.father_name, s.aadhar_number, s.branch_id,
+          s.is_active,
           TO_CHAR(s.membership_end, 'YYYY-MM-DD') AS membership_end,
           TO_CHAR(s.created_at, 'YYYY-MM-DD') AS created_at,
           CASE
@@ -32,11 +32,26 @@ module.exports = (pool) => {
           END AS status,
           (SELECT seats.seat_number FROM seat_assignments sa LEFT JOIN seats ON sa.seat_id = seats.id WHERE sa.student_id = s.id ORDER BY sa.id DESC LIMIT 1) AS seat_number
         FROM students s
+        WHERE 1=1
       `;
       const params = [];
+      let paramCount = 0;
 
+      // Add search filter if provided
+      if (search) {
+        const searchTerm = `%${search.toLowerCase()}%`;
+        query += ` AND (
+          LOWER(s.name) LIKE $${++paramCount} OR 
+          s.phone LIKE $${paramCount} OR
+          LOWER(s.registration_number) LIKE $${paramCount} OR
+          LOWER(s.father_name) LIKE $${paramCount}
+        )`;
+        params.push(searchTerm);
+      }
+
+      // Add branch filter if provided
       if (branchIdNum) {
-        query += ` WHERE s.branch_id = $1`;
+        query += ` AND s.branch_id = $${++paramCount}`;
         params.push(branchIdNum);
       }
       query += ` ORDER BY s.name`;
@@ -661,18 +676,40 @@ router.put('/:id', checkAdminOrStaff, async (req, res) => {
 
   // DELETE a student
   router.delete('/:id', checkAdminOrStaff, async (req, res) => {
+    const client = await pool.connect();
     try {
+      await client.query('BEGIN');
       const id = parseInt(req.params.id, 10);
-      await pool.query('DELETE FROM seat_assignments WHERE student_id = $1', [id]);
-      await pool.query('DELETE FROM student_membership_history WHERE student_id = $1', [id]);
-      const del = await pool.query('DELETE FROM students WHERE id = $1 RETURNING *', [id]);
+      
+      // First, delete advance payment usage records for this student
+      await client.query('DELETE FROM advance_payment_usage WHERE student_id = $1', [id]);
+      
+      // Then delete advance payments for this student
+      await client.query('DELETE FROM advance_payments WHERE student_id = $1', [id]);
+      
+      // Delete other related records
+      await client.query('DELETE FROM seat_assignments WHERE student_id = $1', [id]);
+      await client.query('DELETE FROM student_membership_history WHERE student_id = $1', [id]);
+      
+      // Finally, delete the student
+      const del = await client.query('DELETE FROM students WHERE id = $1 RETURNING *', [id]);
+      
       if (!del.rows[0]) {
+        await client.query('ROLLBACK');
         return res.status(404).json({ message: 'Student not found' });
       }
-      return res.json({ message: 'Student deleted', student: del.rows[0] });
+      
+      await client.query('COMMIT');
+      return res.json({ message: 'Student and all related data deleted', student: del.rows[0] });
     } catch (err) {
+      await client.query('ROLLBACK');
       console.error('DELETE /students/:id error:', err);
-      return res.status(500).json({ message: 'Server error deleting student', error: err.message });
+      return res.status(500).json({ 
+        message: 'Server error deleting student', 
+        error: err.message 
+      });
+    } finally {
+      client.release();
     }
   });
 
@@ -736,7 +773,7 @@ router.put('/:id', checkAdminOrStaff, async (req, res) => {
     try {
       await client.query('BEGIN');
       const id = parseInt(req.params.id, 10);
-
+      
       // FIX START: Destructure snake_case keys from req.body and rename them to camelCase
       const {
         name,
@@ -774,26 +811,12 @@ router.put('/:id', checkAdminOrStaff, async (req, res) => {
 
       // Fee calculations
       const feeValue = parseFloat(totalFee || 0);
-      const cashValue = parseFloat(cash || 0);
-      const onlineValue = parseFloat(online || 0);
+      let cashValue = parseFloat(cash || 0);
+      let onlineValue = parseFloat(online || 0);
       const securityMoneyValue = parseFloat(securityMoney || 0);
-      const amount_paid = cashValue + onlineValue;
-      const due_amount = feeValue - amount_paid;
+      let amount_paid = cashValue + onlineValue;
+      let due_amount = feeValue - amount_paid;
       const status = new Date(membershipEnd) < new Date() ? 'expired' : 'active';
-
-      // Seat conflict check (only if a specific seat is being assigned)
-      if (seatIdNum && shiftIdsNum.length > 0) {
-        for (const shiftId of shiftIdsNum) {
-          const checkAssignment = await client.query(
-            'SELECT 1 FROM seat_assignments WHERE seat_id = $1 AND shift_id = $2 AND student_id != $3',
-            [seatIdNum, shiftId, id]
-          );
-          if (checkAssignment.rows.length > 0) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ message: `Seat is already assigned for shift ${shiftId}` });
-          }
-        }
-      }
 
       // Update the student record with all data from the form
       const upd = await client.query(
@@ -837,7 +860,7 @@ router.put('/:id', checkAdminOrStaff, async (req, res) => {
       }
 
       // Log the renewal to the history table
-      await client.query(
+      const historyResult = await client.query(
         `INSERT INTO student_membership_history (
           student_id, name, email, phone, address,
           membership_start, membership_end, status,
@@ -854,7 +877,7 @@ router.put('/:id', checkAdminOrStaff, async (req, res) => {
           $16, $17, $18,
           $19, $20, $21,
           NOW(), $22::timestamp
-        )`,
+        ) RETURNING id`,
         [
           updated.id, updated.name, updated.email, updated.phone, updated.address,
           updated.membership_start, updated.membership_end, updated.status,
@@ -865,6 +888,8 @@ router.put('/:id', checkAdminOrStaff, async (req, res) => {
           paymentDateInput
         ]
       );
+
+      // No automatic advance payment application - feature removed as per requirements
 
       await client.query('COMMIT');
       res.json({
