@@ -1,0 +1,1 @@
+delete from students where name='AZHAR IMAM' and created_at='2025-09-12' and online='500';
