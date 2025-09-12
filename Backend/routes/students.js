@@ -14,6 +14,43 @@ module.exports = (pool) => {
     FROM students s
   `;
 
+  // GET next registration number
+  router.get('/next-registration-number', checkAdminOrStaff, async (req, res) => {
+    try {
+      // Get the configured starting number from settings
+      const settingsResult = await pool.query(`
+        SELECT value FROM settings WHERE key = 'registration_number_start'
+      `);
+      
+      const configuredStart = settingsResult.rows.length > 0 
+        ? parseInt(settingsResult.rows[0].value, 10) 
+        : 1; // Default to 1 if not configured
+      
+      // Get the highest registration number from the database
+      const result = await pool.query(`
+        SELECT registration_number 
+        FROM students 
+        WHERE registration_number IS NOT NULL 
+        AND registration_number ~ '^[0-9]+$'
+        ORDER BY CAST(registration_number AS INTEGER) DESC 
+        LIMIT 1
+      `);
+      
+      let nextNumber = configuredStart; // Use configured starting number
+      
+      if (result.rows.length > 0) {
+        const lastNumber = parseInt(result.rows[0].registration_number, 10);
+        // Use the higher of: (last number + 1) or configured start
+        nextNumber = Math.max(lastNumber + 1, configuredStart);
+      }
+      
+      res.json({ nextRegistrationNumber: nextNumber.toString() });
+    } catch (err) {
+      console.error('Error fetching next registration number:', err);
+      res.status(500).json({ message: 'Server error', error: err.message });
+    }
+  });
+
   // GET all students (with calculated status, created_at, and seat number)
   router.get('/', checkAdminOrStaff, async (req, res) => {
     try {
@@ -687,11 +724,10 @@ router.put('/:id', checkAdminOrStaff, async (req, res) => {
       // Then delete advance payments for this student
       await client.query('DELETE FROM advance_payments WHERE student_id = $1', [id]);
       
-      // Delete other related records
+      // Delete other related records (except membership history)
       await client.query('DELETE FROM seat_assignments WHERE student_id = $1', [id]);
-      await client.query('DELETE FROM student_membership_history WHERE student_id = $1', [id]);
       
-      // Finally, delete the student
+      // Finally, delete the student (membership history is preserved for record keeping)
       const del = await client.query('DELETE FROM students WHERE id = $1 RETURNING *', [id]);
       
       if (!del.rows[0]) {

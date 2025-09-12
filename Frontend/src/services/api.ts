@@ -902,6 +902,11 @@ const api = {
     const response = await apiClient.get('/reports/monthly-collections', { params: { month } });
     return response.data;
   },
+
+  getNextRegistrationNumber: async (): Promise<{ nextRegistrationNumber: string }> => {
+    const response = await apiClient.get('/students/next-registration-number');
+    return response.data;
+  },
 };
 
 export default api;

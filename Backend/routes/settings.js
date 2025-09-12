@@ -19,18 +19,18 @@ module.exports = (pool) => {
 
   router.put('/', checkAdmin, async (req, res) => {
     try {
-      const { brevo_template_id, days_before_expiration } = req.body;
-      if (brevo_template_id && typeof brevo_template_id !== 'string') {
-        return res.status(400).json({ message: 'Invalid Brevo template ID' });
+      const { registration_number_start } = req.body;
+      if (registration_number_start && (isNaN(registration_number_start) || registration_number_start < 1)) {
+        return res.status(400).json({ message: 'Registration number start must be a positive integer' });
       }
-      if (days_before_expiration && (isNaN(days_before_expiration) || days_before_expiration < 1)) {
-        return res.status(400).json({ message: 'Days before expiration must be a positive integer' });
-      }
-      if (brevo_template_id) {
-        await pool.query('INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2', ['brevo_template_id', brevo_template_id]);
-      }
-      if (days_before_expiration) {
-        await pool.query('INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2', ['days_before_expiration', days_before_expiration.toString()]);
+      if (registration_number_start) {
+        // First try to update existing record
+        const updateResult = await pool.query('UPDATE settings SET value = $1 WHERE key = $2', [registration_number_start.toString(), 'registration_number_start']);
+        
+        // If no rows were updated, insert a new record
+        if (updateResult.rowCount === 0) {
+          await pool.query('INSERT INTO settings (key, value) VALUES ($1, $2)', ['registration_number_start', registration_number_start.toString()]);
+        }
       }
       res.json({ message: 'Settings updated successfully' });
     } catch (err) {

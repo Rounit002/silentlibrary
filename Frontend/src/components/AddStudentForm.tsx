@@ -84,16 +84,23 @@ const AddStudentForm: React.FC = () => {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [branchesData, shiftsData] = await Promise.all([
+        const [branchesData, shiftsData, nextRegNumber] = await Promise.all([
           api.getBranches(),
           api.getSchedules(),
+          api.getNextRegistrationNumber(),
         ]);
         setBranches(branchesData);
         setShifts(shiftsData.schedules);
         setAvailableShifts(shiftsData.schedules); // Initially, all shifts are available
+        
+        // Auto-populate the registration number
+        setFormData(prev => ({
+          ...prev,
+          registrationNumber: nextRegNumber.nextRegistrationNumber
+        }));
       } catch (error) {
         console.error('Failed to fetch initial data:', error);
-        toast.error('Failed to load branches or shifts');
+        toast.error('Failed to load initial data');
       }
     };
     fetchInitialData();
@@ -283,6 +290,7 @@ const AddStudentForm: React.FC = () => {
             name="registrationNumber"
             value={formData.registrationNumber}
             onChange={handleChange}
+            placeholder="Auto-generated (you can edit this)"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
           />
         </div>

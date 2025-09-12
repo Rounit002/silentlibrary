@@ -39,8 +39,7 @@ interface NewUserData {
 }
 
 interface SettingsData {
-  brevoTemplateId: string;
-  daysBeforeExpiration: number; // Changed to number to match backend expectation
+  registrationNumberStart: number;
 }
 
 // Form data interface for type safety
@@ -97,8 +96,7 @@ const Settings = () => {
   });
 
   const [settingsForm, setSettingsForm] = useState({
-    brevoTemplateId: '',
-    daysBeforeExpiration: '', // Keep as string for form input
+    registrationNumberStart: '', // Keep as string for form input
   });
 
   // Sidebar state for responsiveness
@@ -120,8 +118,7 @@ const Settings = () => {
   useEffect(() => {
     if (settings) {
       setSettingsForm({
-        brevoTemplateId: settings.brevoTemplateId || '',
-        daysBeforeExpiration: settings.daysBeforeExpiration?.toString() || '', // Convert number to string for input
+        registrationNumberStart: settings.registrationNumberStart?.toString() || '', // Convert number to string for input
       });
     }
   }, [settings]);
@@ -202,7 +199,7 @@ const Settings = () => {
   });
 
   const settingsMutation = useMutation({
-    mutationFn: (data: { brevoTemplateId: string; daysBeforeExpiration: number }) => api.updateSettings(data),
+    mutationFn: (data: { registrationNumberStart: number }) => api.updateSettings(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       toast.success('Settings updated successfully!');
@@ -257,14 +254,15 @@ const Settings = () => {
 
   const handleSettingsUpdate = (e: React.FormEvent) => {
     e.preventDefault();
-    const daysBeforeExpiration = parseInt(settingsForm.daysBeforeExpiration, 10);
-    if (isNaN(daysBeforeExpiration) || daysBeforeExpiration <= 0) {
-      toast.error('Days Before Expiration must be a positive number');
+    const registrationNumberStart = parseInt(settingsForm.registrationNumberStart, 10);
+    
+    if (isNaN(registrationNumberStart) || registrationNumberStart <= 0) {
+      toast.error('Registration Number Start must be a positive number');
       return;
     }
+    
     const updateData = {
-      brevoTemplateId: settingsForm.brevoTemplateId,
-      daysBeforeExpiration,
+      registrationNumberStart,
     };
     settingsMutation.mutate(updateData);
   };
@@ -415,11 +413,11 @@ const Settings = () => {
                   </form>
                 </div>
               </div>
-              {/* Brevo Email Settings (Admin Only) */}
+              {/* System Settings (Admin Only) */}
               {user.role === 'admin' && (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                   <div className="p-5 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold">Brevo Email Settings</h3>
+                    <h3 className="text-lg font-semibold">System Settings</h3>
                   </div>
                   <div className="p-5">
                     {settingsLoading ? (
@@ -430,31 +428,22 @@ const Settings = () => {
                       <form onSubmit={handleSettingsUpdate}>
                         <div className="space-y-4">
                           <div className="space-y-2">
-                            <label htmlFor="brevoTemplateId" className="text-sm font-medium">
-                              Brevo Template ID
+                            <label htmlFor="registrationNumberStart" className="text-sm font-medium">
+                              Registration Number Starting Value
                             </label>
                             <Input
-                              id="brevoTemplateId"
-                              name="brevoTemplateId"
-                              value={settingsForm.brevoTemplateId}
-                              onChange={handleSettingsChange}
-                              placeholder="Enter Brevo template ID"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label htmlFor="daysBeforeExpiration" className="text-sm font-medium">
-                              Days Before Expiration
-                            </label>
-                            <Input
-                              id="daysBeforeExpiration"
-                              name="daysBeforeExpiration"
+                              id="registrationNumberStart"
+                              name="registrationNumberStart"
                               type="number"
                               min="1"
                               step="1"
-                              value={settingsForm.daysBeforeExpiration}
+                              value={settingsForm.registrationNumberStart}
                               onChange={handleSettingsChange}
-                              placeholder="Enter number of days"
+                              placeholder="Enter starting registration number (e.g., 1000)"
                             />
+                            <p className="text-sm text-gray-500">
+                              Set the starting number for new student registrations. New students will get numbers starting from this value.
+                            </p>
                           </div>
                         </div>
                         <div className="mt-6 flex justify-end">

@@ -18,6 +18,7 @@ interface Expense {
 }
 
 interface Branch  { id: number; name: string }
+interface Product { id: number; name: string }
 
 interface ApiExpenseResponse {
   id: number;
@@ -54,6 +55,7 @@ const HostelExpenses: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expenses,     setExpenses]     = useState<Expense[]>([]);
   const [branches,     setBranches]     = useState<Branch[]>([]);
+  const [products,     setProducts]     = useState<Product[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<number>();
   const [formData,     setFormData]     = useState({
     title: '', cash: '', online: '', date: '', remark: '', branchId: ''
@@ -61,11 +63,15 @@ const HostelExpenses: React.FC = () => {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [loading,      setLoading]      = useState(true);
 
-  // Effect to load branches on component mount
+  // Effect to load branches and products on component mount
   useEffect(() => {
     api.getHostelBranches()
       .then(data => setBranches(Array.isArray(data)? data : []))
       .catch(() => toast.error('Failed to load hostel branches'));
+    
+    api.getProducts()
+      .then(data => setProducts(Array.isArray(data)? data : []))
+      .catch(() => toast.error('Failed to load products'));
   }, []);
 
   // Effect to load hostel expenses
@@ -210,15 +216,20 @@ const HostelExpenses: React.FC = () => {
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   
-                  {/* --- FIX START --- */}
-                  {/* Title Input */}
+                  {/* Product Dropdown */}
                   <div>
-                    <label className="block text-sm">Title</label>
-                    <input type="text" name="title" value={formData.title}
-                      onChange={handleChange} placeholder="Enter expense title"
-                      className="w-full mt-1 px-4 py-2 border rounded"/>
+                    <label className="block text-sm">Product</label>
+                    <select name="title" value={formData.title}
+                      onChange={handleChange}
+                      className="w-full mt-1 px-4 py-2 border rounded">
+                      <option value="">Select a product</option>
+                      {products.map(product => (
+                        <option key={product.id} value={product.name}>
+                          {product.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  {/* --- FIX END --- */}
 
                   {/* Cash */}
                   <div>
