@@ -1,1 +1,1 @@
-delete from students where name='AZHAR IMAM' and created_at='2025-09-12' and online='500';
+delete from student_membership_history where name like '%AZHAR IMAM%' and  changed_at between '2025-09-12 00:00:00.530292' and '2025-09-12 23:59:59.530292';
