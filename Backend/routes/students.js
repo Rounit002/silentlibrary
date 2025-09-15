@@ -16,38 +16,24 @@ module.exports = (pool) => {
 
   // GET next registration number
   router.get('/next-registration-number', checkAdminOrStaff, async (req, res) => {
+    const client = await pool.connect();
     try {
-      // Get the configured starting number from settings
-      const settingsResult = await pool.query(`
-        SELECT value FROM settings WHERE key = 'registration_number_start'
-      `);
+      await client.query('BEGIN');
       
-      const configuredStart = settingsResult.rows.length > 0 
-        ? parseInt(settingsResult.rows[0].value, 10) 
-        : 1; // Default to 1 if not configured
+      // Get the next registration number from the sequence
+      const result = await client.query('SELECT get_next_registration_number() as next_number');
+      const nextNumber = result.rows[0].next_number;
       
-      // Get the highest registration number from the database
-      const result = await pool.query(`
-        SELECT registration_number 
-        FROM students 
-        WHERE registration_number IS NOT NULL 
-        AND registration_number ~ '^[0-9]+$'
-        ORDER BY CAST(registration_number AS INTEGER) DESC 
-        LIMIT 1
-      `);
+      // Rollback since we're just peeking at the next number
+      await client.query('ROLLBACK');
       
-      let nextNumber = configuredStart; // Use configured starting number
-      
-      if (result.rows.length > 0) {
-        const lastNumber = parseInt(result.rows[0].registration_number, 10);
-        // Use the higher of: (last number + 1) or configured start
-        nextNumber = Math.max(lastNumber + 1, configuredStart);
-      }
-      
-      res.json({ nextRegistrationNumber: nextNumber.toString() });
+      res.json({ nextRegistrationNumber: nextNumber });
     } catch (err) {
       console.error('Error fetching next registration number:', err);
+      if (client) await client.query('ROLLBACK');
       res.status(500).json({ message: 'Server error', error: err.message });
+    } finally {
+      if (client) client.release();
     }
   });
 
@@ -524,6 +510,13 @@ router.get('/expiring-soon', checkAdminOrStaff, async (req, res) => {
         feeValue, paidValue, dueAmount, cashValue, onlineValue, securityMoneyValue, remark, profile_image_url, status,
         registration_number, father_name, aadhar_number
       });
+      // Generate a new registration number if not provided
+      let finalRegistrationNumber = registration_number;
+      if (!finalRegistrationNumber) {
+        const regNumResult = await client.query('SELECT get_next_registration_number() as reg_number');
+        finalRegistrationNumber = regNumResult.rows[0].reg_number;
+      }
+
       const result = await client.query(
         `INSERT INTO students (
           name, email, phone, address, branch_id, membership_start, membership_end,
@@ -534,7 +527,7 @@ router.get('/expiring-soon', checkAdminOrStaff, async (req, res) => {
         [
           name, email, phone, address, branchIdNum, membership_start, membership_end,
           feeValue, paidValue, dueAmount, cashValue, onlineValue, securityMoneyValue, remark || null, profile_image_url || null, status,
-          registration_number || null, father_name || null, aadhar_number || null
+          finalRegistrationNumber, father_name || null, aadhar_number || null
         ]
       );
       const student = result.rows[0];

@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { Trash2, AlertTriangle } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import api from '../services/api';
 import { useAuth } from '@/context/AuthContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Collection {
   historyId: number;
@@ -39,6 +50,9 @@ const CollectionDue: React.FC = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [filteredCollections, setFilteredCollections] = useState<Collection[]>([]);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [collectionToDelete, setCollectionToDelete] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online' | null>(null);
@@ -151,10 +165,42 @@ const CollectionDue: React.FC = () => {
       });
       toast.success('Payment updated successfully');
       setIsPayModalOpen(false);
+      await refreshCollections();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update payment');
+    }
+  };
+
+  const handleDeleteClick = (historyId: number) => {
+    setCollectionToDelete(historyId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!collectionToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await api.deleteCollection(collectionToDelete);
+      toast.success('Collection record deleted successfully');
+      await refreshCollections();
+    } catch (err: any) {
+      console.error('Error deleting collection:', err);
+      toast.error(err.message || 'Failed to delete collection record');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+      setCollectionToDelete(null);
+    }
+  };
+
+  const refreshCollections = async () => {
+    try {
       const params: { month?: string; branchId?: number } = {};
       if (selectedMonth) params.month = selectedMonth;
       if (selectedBranchId) params.branchId = selectedBranchId;
       const data = await api.getCollections(params);
+      
       const mapped = data.collections.map((c: any) => ({
         historyId: c.historyId,
         studentId: c.studentId,
@@ -171,9 +217,11 @@ const CollectionDue: React.FC = () => {
         branchId: c.branchId,
         branchName: c.branchName
       }));
+      
       setCollections(mapped);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update payment');
+    } catch (err) {
+      console.error('Error refreshing collections:', err);
+      toast.error('Failed to refresh collection data');
     }
   };
 
@@ -336,16 +384,23 @@ const CollectionDue: React.FC = () => {
                             <span className="text-gray-400">N/A</span>
                           )}
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm">
-                          {collection.dueAmount > 0 && (
-                            <button
-                              onClick={() => handlePayDue(collection)}
-                              className="text-purple-600 hover:text-purple-800 font-medium"
-                            >
-                              Pay Due
-                            </button>
-                          )}
-                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-2">
+                      {collection.dueAmount > 0 && (
+                        <button
+                          onClick={() => handlePayDue(collection)}
+                          className="text-indigo-600 hover:text-indigo-900 font-medium mr-2"
+                        >
+                          Pay Due
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteClick(collection.historyId)}
+                        className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50"
+                        title="Delete record"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
                       </motion.tr>
                     ))
                   )}
@@ -415,6 +470,31 @@ const CollectionDue: React.FC = () => {
           </motion.div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <AlertDialogTitle>Delete Collection Record</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="pt-2">
+              Are you sure you want to delete this collection record? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

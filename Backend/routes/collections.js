@@ -211,5 +211,82 @@ module.exports = (pool) => {
     }
   });
 
+  // DELETE a collection entry
+  router.delete('/:historyId', checkAdminOrStaff, async (req, res) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      const { historyId } = req.params;
+
+      // First, get the history record to check if it exists and get the student_id
+      const historyRes = await client.query(
+        'SELECT * FROM student_membership_history WHERE id = $1', 
+        [historyId]
+      );
+      
+      if (historyRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ message: 'Collection record not found' });
+      }
+
+      const history = historyRes.rows[0];
+      const studentId = history.student_id;
+
+      // Delete the record from student_membership_history
+      await client.query(
+        'DELETE FROM student_membership_history WHERE id = $1',
+        [historyId]
+      );
+
+      // Check if there are any remaining history records for this student
+      const remainingHistoryRes = await client.query(
+        'SELECT * FROM student_membership_history WHERE student_id = $1 ORDER BY id DESC LIMIT 1',
+        [studentId]
+      );
+
+      if (remainingHistoryRes.rows.length > 0) {
+        // If there are remaining history records, update the student record with the latest history
+        const latestHistory = remainingHistoryRes.rows[0];
+        await client.query(
+          `UPDATE students 
+           SET cash = $1, online = $2, amount_paid = $3, due_amount = $4,
+               total_fee = $5, membership_start = $6, membership_end = $7
+           WHERE id = $8`,
+          [
+            latestHistory.cash || 0,
+            latestHistory.online || 0,
+            latestHistory.amount_paid || 0,
+            latestHistory.due_amount || 0,
+            latestHistory.total_fee || 0,
+            latestHistory.membership_start,
+            latestHistory.membership_end,
+            studentId
+          ]
+        );
+      } else {
+        // If no history records remain, set default values in the student record
+        await client.query(
+          `UPDATE students 
+           SET cash = 0, online = 0, amount_paid = 0, due_amount = 0
+           WHERE id = $1`,
+          [studentId]
+        );
+      }
+
+      await client.query('COMMIT');
+      res.json({ message: 'Collection record deleted successfully' });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error deleting collection record:', error);
+      res.status(500).json({ 
+        message: 'Error deleting collection record', 
+        error: error.message 
+      });
+    } finally {
+      client.release();
+    }
+  });
+
   return router;
 };

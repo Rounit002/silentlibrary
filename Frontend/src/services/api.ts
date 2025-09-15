@@ -849,10 +849,15 @@ const api = {
     paymentDetails: { amount: number; method: 'cash' | 'online' }
   ): Promise<{ message: string; collection: Collection }> => {
     const { amount, method } = paymentDetails;
-    const response = await apiClient.put(`/collections/${historyId}`, {
+    const response = await apiClient.put(`/api/collections/${historyId}`, {
       paymentAmount: amount,
       paymentMethod: method,
     });
+    return response.data;
+  },
+
+  deleteCollection: async (historyId: number): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/collections/${historyId}`);
     return response.data;
   },
 
