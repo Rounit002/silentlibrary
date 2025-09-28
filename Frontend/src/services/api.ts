@@ -839,7 +839,7 @@ const api = {
     }
   },
 
-  getCollections: async (params: { month?: string; branchId?: number } = {}): Promise<{ collections: Collection[] }> => {
+  getCollections: async (params: { month?: string; branchId?: number } = {}): Promise<{ collections: Collection[]; previousDuePaid?: { totalAmount: number; totalCash: number; totalOnline: number; items: Array<{ id: number; historyId: number; studentId: number; studentName: string; branchId: number; branchName: string; amount: number; method: 'cash' | 'online'; paidAt: string; monthTag: string; originalMonth: string; }> }; previousDuePaidAdjustments?: { totalAmount: number; totalCash: number; totalOnline: number } }> => {
     const response = await apiClient.get('/collections', { params });
     return response.data;
   },
@@ -849,7 +849,8 @@ const api = {
     paymentDetails: { amount: number; method: 'cash' | 'online' }
   ): Promise<{ message: string; collection: Collection }> => {
     const { amount, method } = paymentDetails;
-    const response = await apiClient.put(`/api/collections/${historyId}`, {
+    // Base URL already includes /api; endpoint is /collections/:id
+    const response = await apiClient.put(`/collections/${historyId}`, {
       paymentAmount: amount,
       paymentMethod: method,
     });

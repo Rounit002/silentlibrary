@@ -51,6 +51,52 @@ module.exports = (pool) => {
 
       query += ` ORDER BY smh.name`;
       const result = await pool.query(query, params);
+
+      // Build adjustments summary for the requested month: sums of due payments paid later (do not mutate rows)
+      let previousDuePaidAdjustments = { totalAmount: 0, totalCash: 0, totalOnline: 0 };
+      if (req.query.month) {
+        // Ensure helper table exists before selecting
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS previous_month_due_payments (
+            id SERIAL PRIMARY KEY,
+            history_id INTEGER NOT NULL REFERENCES student_membership_history(id) ON DELETE CASCADE,
+            student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+            branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+            amount NUMERIC(12,2) NOT NULL,
+            method VARCHAR(10) NOT NULL CHECK (method IN ('cash','online')),
+            paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            month_tag VARCHAR(7) NOT NULL,
+            original_month VARCHAR(7) NOT NULL
+          );
+        `);
+
+        const adjParams = [req.query.month];
+        let adjQuery = `
+          SELECT 
+            COALESCE(SUM(amount),0) as total,
+            COALESCE(SUM(CASE WHEN method='cash' THEN amount ELSE 0 END),0) as cash_sum,
+            COALESCE(SUM(CASE WHEN method='online' THEN amount ELSE 0 END),0) as online_sum
+          FROM previous_month_due_payments
+          WHERE original_month = $1
+        `;
+        if (req.query.branchId) {
+          const b = parseInt(req.query.branchId, 10);
+          if (!isNaN(b)) {
+            adjQuery += ' AND branch_id = $2';
+            adjParams.push(b);
+          }
+        }
+        const adjRes = await pool.query(adjQuery, adjParams);
+        if (adjRes.rows.length > 0) {
+          const r = adjRes.rows[0];
+          previousDuePaidAdjustments = {
+            totalAmount: parseFloat(r.total) || 0,
+            totalCash: parseFloat(r.cash_sum) || 0,
+            totalOnline: parseFloat(r.online_sum) || 0,
+          };
+        }
+      }
+
       const collections = result.rows.map(row => ({
         historyId: row.history_id,
         studentId: row.student_id,
@@ -68,7 +114,75 @@ module.exports = (pool) => {
         branchId: row.branch_id,
         branchName: row.branch_name
       }));
-      res.json({ collections });
+      // Additionally, include previous-month due payments attributed to the requested month
+      let previousDuePaid = {
+        totalAmount: 0,
+        totalCash: 0,
+        totalOnline: 0,
+        items: []
+      };
+
+      // Only attempt to read when a month filter is provided
+      if (req.query.month) {
+        const [yrStr, moStr] = String(req.query.month).split('-');
+        const yearNum = parseInt(yrStr);
+        const monthNum = parseInt(moStr);
+        if (!isNaN(yearNum) && !isNaN(monthNum)) {
+          // Ensure table exists (safe to run repeatedly)
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS previous_month_due_payments (
+              id SERIAL PRIMARY KEY,
+              history_id INTEGER NOT NULL REFERENCES student_membership_history(id) ON DELETE CASCADE,
+              student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+              branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+              amount NUMERIC(12,2) NOT NULL,
+              method VARCHAR(10) NOT NULL CHECK (method IN ('cash','online')),
+              paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              month_tag VARCHAR(7) NOT NULL, -- YYYY-MM representing the month to attribute
+              original_month VARCHAR(7) NOT NULL -- YYYY-MM of the history record where due existed
+            );
+          `);
+
+          const pdpParams = [req.query.month];
+          let pdpQuery = `
+            SELECT p.id, p.history_id, p.student_id, p.branch_id, p.amount, p.method, p.paid_at, p.month_tag, p.original_month,
+                   s.name as student_name, b.name as branch_name
+            FROM previous_month_due_payments p
+            LEFT JOIN students s ON p.student_id = s.id
+            LEFT JOIN branches b ON p.branch_id = b.id
+            WHERE p.month_tag = $1
+          `;
+          if (req.query.branchId) {
+            const branchId = parseInt(req.query.branchId, 10);
+            if (!isNaN(branchId)) {
+              pdpQuery += ' AND p.branch_id = $2';
+              pdpParams.push(branchId);
+            }
+          }
+          pdpQuery += ' ORDER BY p.paid_at DESC';
+          const pdpRes = await pool.query(pdpQuery, pdpParams);
+
+          const items = pdpRes.rows.map(r => ({
+            id: r.id,
+            historyId: r.history_id,
+            studentId: r.student_id,
+            studentName: r.student_name,
+            branchId: r.branch_id,
+            branchName: r.branch_name,
+            amount: parseFloat(r.amount) || 0,
+            method: r.method,
+            paidAt: r.paid_at,
+            monthTag: r.month_tag,
+            originalMonth: r.original_month,
+          }));
+          const totalAmount = items.reduce((s, it) => s + it.amount, 0);
+          const totalCash = items.filter(it => it.method === 'cash').reduce((s, it) => s + it.amount, 0);
+          const totalOnline = items.filter(it => it.method === 'online').reduce((s, it) => s + it.amount, 0);
+          previousDuePaid = { totalAmount, totalCash, totalOnline, items };
+        }
+      }
+
+      res.json({ collections, previousDuePaid, previousDuePaidAdjustments });
     } catch (err) {
       console.error('Error fetching collections:', err);
       res.status(500).json({ message: 'Server error fetching collections', error: err.message });
@@ -153,6 +267,44 @@ module.exports = (pool) => {
          WHERE id = $5`,
         [new_cash, new_online, new_amount_paid, new_due_amount, studentId]
       );
+
+      // If the payment is for a history record not in the current month, record it as a previous-month due paid
+      const historyChangedAt = history.changed_at ? new Date(history.changed_at) : null;
+      const now = new Date();
+      const toYyyyMm = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const currentMonthTag = toYyyyMm(now);
+      const historyMonthTag = historyChangedAt ? toYyyyMm(historyChangedAt) : null;
+
+      if (historyMonthTag && historyMonthTag !== currentMonthTag) {
+        // Ensure helper table exists
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS previous_month_due_payments (
+            id SERIAL PRIMARY KEY,
+            history_id INTEGER NOT NULL REFERENCES student_membership_history(id) ON DELETE CASCADE,
+            student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+            branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+            amount NUMERIC(12,2) NOT NULL,
+            method VARCHAR(10) NOT NULL CHECK (method IN ('cash','online')),
+            paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            month_tag VARCHAR(7) NOT NULL,
+            original_month VARCHAR(7) NOT NULL
+          );
+        `);
+
+        await client.query(
+          `INSERT INTO previous_month_due_payments (history_id, student_id, branch_id, amount, method, paid_at, month_tag, original_month)
+           VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)`,
+          [
+            historyId,
+            studentId,
+            history.branch_id,
+            payment_amount,
+            payment_method,
+            currentMonthTag,
+            historyMonthTag,
+          ]
+        );
+      }
 
       // Fetch the updated history record with shift title and branch name
       const updatedRes = await client.query(`

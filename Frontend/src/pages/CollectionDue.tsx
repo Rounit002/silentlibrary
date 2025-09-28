@@ -33,6 +33,27 @@ interface Collection {
   paymentDate?: string | null;
 }
 
+interface PreviousDuePaidItem {
+  id: number;
+  historyId: number;
+  studentId: number;
+  studentName: string;
+  branchId: number;
+  branchName: string;
+  amount: number;
+  method: 'cash' | 'online';
+  paidAt: string;
+  monthTag: string;
+  originalMonth: string;
+}
+
+interface PreviousDuePaidSummary {
+  totalAmount: number;
+  totalCash: number;
+  totalOnline: number;
+  items: PreviousDuePaidItem[];
+}
+
 interface Branch {
   id: number;
   name: string;
@@ -49,6 +70,14 @@ const CollectionDue: React.FC = () => {
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [filteredCollections, setFilteredCollections] = useState<Collection[]>([]);
+  const [previousDuePaid, setPreviousDuePaid] = useState<PreviousDuePaidSummary | null>(null);
+  const [isPrevDueModalOpen, setIsPrevDueModalOpen] = useState(false);
+  const [previousDuePaidAdjustments, setPreviousDuePaidAdjustments] = useState<{ totalAmount: number; totalCash: number; totalOnline: number } | null>(null);
+  // Filters for Previous Month Due Paid modal
+  const [prevFilterName, setPrevFilterName] = useState('');
+  const [prevFilterPaidAt, setPrevFilterPaidAt] = useState(''); // YYYY-MM-DD
+  const [prevFilterOriginalMonth, setPrevFilterOriginalMonth] = useState(''); // YYYY-MM
+  const [prevFilterBranchId, setPrevFilterBranchId] = useState<number | null>(null);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [collectionToDelete, setCollectionToDelete] = useState<number | null>(null);
@@ -101,10 +130,14 @@ const CollectionDue: React.FC = () => {
         }));
 
         setCollections(mapped);
+        setPreviousDuePaid(data.previousDuePaid || null);
+        setPreviousDuePaidAdjustments(data.previousDuePaidAdjustments || null);
       } catch (err: any) {
         console.error('Failed to fetch collections:', err);
         toast.error(err.message || 'Failed to load collection data');
         setCollections([]);
+        setPreviousDuePaid(null);
+        setPreviousDuePaidAdjustments(null);
       } finally {
         setLoading(false);
       }
@@ -135,11 +168,23 @@ const CollectionDue: React.FC = () => {
   }, [collections, searchTerm, selectedMonth, selectedDate]);
 
   const totalStudents = filteredCollections.length;
-  const totalCollected = filteredCollections.reduce((sum, c) => sum + c.amountPaid, 0);
+  const baseCollected = filteredCollections.reduce((sum, c) => sum + c.amountPaid, 0);
   const totalDue = filteredCollections.reduce((sum, c) => sum + c.dueAmount, 0);
   const totalCash = filteredCollections.reduce((sum, c) => sum + c.cash, 0);
   const totalOnline = filteredCollections.reduce((sum, c) => sum + c.online, 0);
   // Removed security money aggregation as per requirements
+  // Add previous-month due paid into current month Total Collected only
+  const isViewingCurrentMonth = selectedMonth === currentMonth;
+  const totalCollected = isViewingCurrentMonth
+    ? baseCollected + (previousDuePaid?.totalAmount || 0)
+    : Math.max(0, baseCollected - (previousDuePaidAdjustments?.totalAmount || 0));
+
+  const displayCash = isViewingCurrentMonth
+    ? totalCash
+    : Math.max(0, totalCash - (previousDuePaidAdjustments?.totalCash || 0));
+  const displayOnline = isViewingCurrentMonth
+    ? totalOnline
+    : Math.max(0, totalOnline - (previousDuePaidAdjustments?.totalOnline || 0));
 
   const handlePayDue = (collection: Collection) => {
     setSelectedCollection(collection);
@@ -219,6 +264,8 @@ const CollectionDue: React.FC = () => {
       }));
       
       setCollections(mapped);
+      setPreviousDuePaid(data.previousDuePaid || null);
+      setPreviousDuePaidAdjustments(data.previousDuePaidAdjustments || null);
     } catch (err) {
       console.error('Error refreshing collections:', err);
       toast.error('Failed to refresh collection data');
@@ -314,12 +361,24 @@ const CollectionDue: React.FC = () => {
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow-sm border">
                   <h3 className="text-sm font-medium text-gray-500">Total Cash Collected</h3>
-                  <p className="text-xl font-bold text-green-600">₹{totalCash.toFixed(2)}</p>
+                  <p className="text-xl font-bold text-green-600">₹{displayCash.toFixed(2)}</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow-sm border">
                   <h3 className="text-sm font-medium text-gray-500">Total Online Collected</h3>
-                  <p className="text-xl font-bold text-green-600">₹{totalOnline.toFixed(2)}</p>
+                  <p className="text-xl font-bold text-green-600">₹{displayOnline.toFixed(2)}</p>
                 </div>
+                {isViewingCurrentMonth && previousDuePaid && previousDuePaid.totalAmount > 0 && (
+                  <button
+                    onClick={() => setIsPrevDueModalOpen(true)}
+                    className="bg-white p-4 rounded-lg shadow-sm border text-left hover:shadow-md transition"
+                    title="View students who paid previous month due in the current month"
+                  >
+                    <h3 className="text-sm font-medium text-gray-500">Previous Month Due Paid</h3>
+                    <p className="text-xl font-bold text-indigo-600">₹{previousDuePaid.totalAmount.toFixed(2)}</p>
+                    <p className="text-xs text-gray-500 mt-1">Cash: ₹{previousDuePaid.totalCash.toFixed(2)} · Online: ₹{previousDuePaid.totalOnline.toFixed(2)}</p>
+                    <p className="text-[11px] text-gray-400 mt-1">Click to view {previousDuePaid.items.length} student(s)</p>
+                  </button>
+                )}
               </motion.div>
             )}
 
@@ -470,6 +529,118 @@ const CollectionDue: React.FC = () => {
           </motion.div>
         )}
       </div>
+
+      {/* Previous Month Due Paid - Details Modal */}
+      {isPrevDueModalOpen && previousDuePaid && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-3xl w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Previous Month Due Paid - Details</h3>
+              <button onClick={() => setIsPrevDueModalOpen(false)} className="text-gray-600 hover:text-gray-800">✕</button>
+            </div>
+            {/* Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+              <input
+                type="text"
+                placeholder="Search name..."
+                className="p-2 border rounded"
+                value={prevFilterName}
+                onChange={(e) => setPrevFilterName(e.target.value)}
+              />
+              <input
+                type="date"
+                className="p-2 border rounded"
+                value={prevFilterPaidAt}
+                onChange={(e) => setPrevFilterPaidAt(e.target.value)}
+              />
+              <input
+                type="month"
+                className="p-2 border rounded"
+                value={prevFilterOriginalMonth}
+                onChange={(e) => setPrevFilterOriginalMonth(e.target.value)}
+              />
+              <select
+                className="p-2 border rounded"
+                value={prevFilterBranchId ?? ''}
+                onChange={(e) => setPrevFilterBranchId(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">All Branches</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Compute filtered items and modal totals */}
+            {(() => {
+              const items = previousDuePaid.items.filter((it) => {
+                const nameOk = !prevFilterName || (it.studentName || '').toLowerCase().includes(prevFilterName.toLowerCase());
+                const paidAtOk = !prevFilterPaidAt || (new Date(it.paidAt).toISOString().slice(0,10) === prevFilterPaidAt);
+                const monthOk = !prevFilterOriginalMonth || it.originalMonth === prevFilterOriginalMonth;
+                const branchOk = !prevFilterBranchId || it.branchId === prevFilterBranchId;
+                return nameOk && paidAtOk && monthOk && branchOk;
+              });
+              const totalAmount = items.reduce((s, i) => s + (i.amount || 0), 0);
+              const totalCash = items.filter(i => i.method === 'cash').reduce((s, i) => s + (i.amount || 0), 0);
+              const totalOnline = items.filter(i => i.method === 'online').reduce((s, i) => s + (i.amount || 0), 0);
+            
+              return (
+                <>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+              <div className="bg-gray-50 p-3 rounded border">
+                <div className="text-xs text-gray-500">Total Amount</div>
+                <div className="text-base font-bold">₹{totalAmount.toFixed(2)}</div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded border">
+                <div className="text-xs text-gray-500">Cash</div>
+                <div className="text-base font-bold">₹{totalCash.toFixed(2)}</div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded border">
+                <div className="text-xs text-gray-500">Online</div>
+                <div className="text-base font-bold">₹{totalOnline.toFixed(2)}</div>
+              </div>
+            </div>
+            <div className="overflow-x-auto border rounded">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid At</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original Month</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {items.length === 0 ? (
+                    <tr>
+                      <td className="px-4 py-3 text-center text-gray-500" colSpan={6}>No previous month due payments</td>
+                    </tr>
+                  ) : (
+                    items.map((it) => (
+                      <tr key={it.id}>
+                        <td className="px-4 py-2 text-sm">{it.studentName}</td>
+                        <td className="px-4 py-2 text-sm">{it.branchName || 'N/A'}</td>
+                        <td className="px-4 py-2 text-sm text-green-600">₹{it.amount.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-sm">{it.method}</td>
+                        <td className="px-4 py-2 text-sm">{new Date(it.paidAt).toLocaleDateString()}</td>
+                        <td className="px-4 py-2 text-sm">{it.originalMonth}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 text-right">
+              <button onClick={() => setIsPrevDueModalOpen(false)} className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100">Close</button>
+            </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
