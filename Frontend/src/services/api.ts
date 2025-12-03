@@ -401,6 +401,15 @@ const api = {
     }
   },
 
+  deleteHostelCollection: async (historyId: number): Promise<{ message: string }> => {
+    try {
+      const response = await apiClient.delete(`/hostel/collections/${historyId}`);
+      return response.data;
+    } catch (error: any) {
+      throw error;
+    }
+  },
+
   // START: Added Hostel Expense Functions
   getHostelExpenses: async (branchId?: number): Promise<{ expenses: Expense[] }> => {
   // --- FIX END ---

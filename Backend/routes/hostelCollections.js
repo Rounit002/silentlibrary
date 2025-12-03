@@ -142,5 +142,78 @@ module.exports = (pool) => {
     }
   });
 
+  // DELETE a hostel collection entry
+  router.delete('/:historyId', checkAdminOrStaff, async (req, res) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      const { historyId } = req.params;
+      const parsedHistoryId = parseInt(historyId);
+      
+      if (isNaN(parsedHistoryId)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Invalid history ID format.' });
+      }
+
+      // First, get the history record to check if it exists and get the student_id
+      const historyRes = await client.query(
+        'SELECT * FROM hostel_student_history WHERE id = $1', 
+        [parsedHistoryId]
+      );
+      
+      if (historyRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ message: 'Hostel collection record not found' });
+      }
+
+      const history = historyRes.rows[0];
+      const studentId = history.student_id;
+
+      // Delete the record from hostel_student_history
+      await client.query(
+        'DELETE FROM hostel_student_history WHERE id = $1',
+        [parsedHistoryId]
+      );
+
+      // Check if there are any remaining history records for this student
+      const remainingHistoryRes = await client.query(
+        'SELECT * FROM hostel_student_history WHERE student_id = $1 ORDER BY id DESC LIMIT 1',
+        [studentId]
+      );
+
+      if (remainingHistoryRes.rows.length > 0) {
+        // If there are remaining history records, only update the timestamp to reflect the deletion
+        // Keep the current room_number as is to avoid affecting student's current stay
+        await client.query(
+          `UPDATE hostel_students 
+           SET updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [studentId]
+        );
+      } else {
+        // Only if no history records remain, clear the room number
+        await client.query(
+          `UPDATE hostel_students 
+           SET room_number = NULL, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [studentId]
+        );
+      }
+
+      await client.query('COMMIT');
+      res.json({ message: 'Hostel collection record deleted successfully' });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('[hostelCollections.js DELETE] Error deleting collection record:', error);
+      res.status(500).json({ 
+        message: 'Error deleting hostel collection record', 
+        error: error.message 
+      });
+    } finally {
+      client.release();
+    }
+  });
+
   return router;
 };

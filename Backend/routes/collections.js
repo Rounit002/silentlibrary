@@ -398,29 +398,27 @@ module.exports = (pool) => {
       );
 
       if (remainingHistoryRes.rows.length > 0) {
-        // If there are remaining history records, update the student record with the latest history
+        // If there are remaining history records, update payment totals but preserve current membership dates
         const latestHistory = remainingHistoryRes.rows[0];
         await client.query(
           `UPDATE students 
            SET cash = $1, online = $2, amount_paid = $3, due_amount = $4,
-               total_fee = $5, membership_start = $6, membership_end = $7
-           WHERE id = $8`,
+               total_fee = $5
+           WHERE id = $6`,
           [
             latestHistory.cash || 0,
             latestHistory.online || 0,
             latestHistory.amount_paid || 0,
             latestHistory.due_amount || 0,
             latestHistory.total_fee || 0,
-            latestHistory.membership_start,
-            latestHistory.membership_end,
             studentId
           ]
         );
       } else {
-        // If no history records remain, set default values in the student record
+        // If no history records remain, set payment defaults but keep current membership dates
         await client.query(
           `UPDATE students 
-           SET cash = 0, online = 0, amount_paid = 0, due_amount = 0
+           SET cash = 0, online = 0, amount_paid = 0, due_amount = 0, total_fee = 0
            WHERE id = $1`,
           [studentId]
         );

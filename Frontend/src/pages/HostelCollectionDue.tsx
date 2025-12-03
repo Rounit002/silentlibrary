@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { Trash2, AlertTriangle } from 'lucide-react';
 import Sidebar from '../components/Sidebar'; 
 import api from '../services/api';
-import { useAuth } from '@/context/AuthContext'; 
+import { useAuth } from '@/context/AuthContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'; 
 
 interface Collection {
   historyId: number;
@@ -44,6 +55,9 @@ const HostelCollectionDue: React.FC = () => {
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [paymentType, setPaymentType] = useState<'cash' | 'online'>('cash');
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [collectionToDelete, setCollectionToDelete] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -197,6 +211,29 @@ const HostelCollectionDue: React.FC = () => {
     }
   };
 
+  const handleDeleteClick = (historyId: number) => {
+    setCollectionToDelete(historyId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!collectionToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await api.deleteHostelCollection(collectionToDelete);
+      toast.success('Hostel collection record deleted successfully');
+      await fetchCollectionsData(selectedMonth, selectedBranchId);
+    } catch (err: any) {
+      console.error('Error deleting hostel collection:', err);
+      toast.error(err.message || 'Failed to delete hostel collection record');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+      setCollectionToDelete(null);
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#fef9f6]">
       <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
@@ -318,7 +355,16 @@ const HostelCollectionDue: React.FC = () => {
                         <td className="px-3 py-4 whitespace-nowrap truncate max-w-xs" title={collection.historyRemark || ''}>{collection.historyRemark || 'N/A'}</td>
                         <td className="px-3 py-4 whitespace-nowrap">{collection.historyCreatedAt ? new Date(collection.historyCreatedAt).toLocaleString() : 'N/A'}</td>
                         <td className="px-3 py-4 whitespace-nowrap">{collection.historyUpdatedAt ? new Date(collection.historyUpdatedAt).toLocaleString() : 'N/A'}</td>
-                        <td className="px-3 py-4 whitespace-nowrap">{collection.dueAmount > 0 && (<button onClick={() => handlePayDue(collection)} className="text-purple-600 hover:text-purple-800 font-medium">Pay Due</button>)}</td>
+                        <td className="px-3 py-4 whitespace-nowrap space-x-2">
+                          {collection.dueAmount > 0 && (<button onClick={() => handlePayDue(collection)} className="text-purple-600 hover:text-purple-800 font-medium">Pay Due</button>)}
+                          <button
+                            onClick={() => handleDeleteClick(collection.historyId)}
+                            className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50"
+                            title="Delete record"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
                       </motion.tr>
                     ))
                   )}
@@ -349,6 +395,31 @@ const HostelCollectionDue: React.FC = () => {
                 </motion.div>
               </div>
             )}
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                    <AlertDialogTitle>Delete Hostel Collection Record</AlertDialogTitle>
+                  </div>
+                  <AlertDialogDescription className="pt-2">
+                    Are you sure you want to delete this hostel collection record? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleConfirmDelete}
+                    disabled={isDeleting}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </motion.div>
       </div>
     </div>
