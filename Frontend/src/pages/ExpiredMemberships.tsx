@@ -3,7 +3,7 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import api from '../services/api';
-import { Search, ChevronLeft, ChevronRight, Trash2, Eye, MessageSquare } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Trash2, Eye, MessageSquare, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -51,6 +51,7 @@ interface Student {
   shiftTitle?: string;
   seatId?: number;
   seatNumber?: string;
+  isActive?: boolean;
 }
 
 interface Seat {
@@ -145,7 +146,23 @@ const ExpiredMemberships = () => {
       };
       fetchSeatsForShift();
     }
-  }, [selectedShift, selectedStudent]);
+  }, [selectedShift, selectedStudent, selectedSeat]);
+
+  const handleStatusToggle = async (id: number, currentStatus: boolean | undefined) => {
+    const isCurrentlyActive = currentStatus !== false;
+    const newStatus = !isCurrentlyActive;
+    const action = newStatus ? 'activate' : 'deactivate';
+    if (window.confirm(`Are you sure you want to ${action} this student?${!newStatus ? '\nThis will unassign their seat.' : ''}`)) {
+      try {
+        await api.updateStudentStatus(id, { isActive: newStatus });
+        toast.success(`Student ${action}d successfully`);
+        const refreshed = await api.getExpiredMemberships(selectedFilterBranch?.value);
+        setStudents(refreshed.students);
+      } catch (error: any) {
+        toast.error(`Failed to ${action} student`);
+      }
+    }
+  };
 
   const handleRenewClick = async (student: Student) => {
     try {
@@ -328,6 +345,22 @@ const ExpiredMemberships = () => {
                           {(user?.role === 'admin' || user?.role === 'staff') && (
                             <Button onClick={() => handleRenewClick(student)}>
                               <ChevronRight size={16} /> Renew
+                            </Button>
+                          )}
+                          {(user?.role === 'admin' ||
+                            (hasPermissions(user) && user.permissions.includes('manage_students'))) && (
+                            <Button
+                              variant="outline"
+                              className={`flex items-center gap-1 ${
+                                (student.isActive ?? true)
+                                  ? 'text-yellow-600 hover:bg-yellow-50'
+                                  : 'text-green-600 hover:bg-green-50'
+                              }`}
+                              onClick={() => handleStatusToggle(student.id, student.isActive)}
+                              title={(student.isActive ?? true) ? 'Deactivate Student' : 'Activate Student'}
+                            >
+                              {(student.isActive ?? true) ? <ToggleLeft size={16} /> : <ToggleRight size={16} />}
+                              {(student.isActive ?? true) ? 'Deactivate' : 'Activate'}
                             </Button>
                           )}
                           {(user?.role === 'admin' ||

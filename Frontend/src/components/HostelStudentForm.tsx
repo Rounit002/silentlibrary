@@ -39,6 +39,7 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
   const [remark, setRemark] = useState(initialData?.remark || '');
   const [dueAmount, setDueAmount] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [createdAt, setCreatedAt] = useState(initialData?.createdAt || initialData?.created_at || '');
 
   const navigate = useNavigate();
 
@@ -80,6 +81,7 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
         setOnlinePaid(initialData.onlinePaid?.toString() || initialData.online_paid?.toString() || '');
         setRoomNumber(initialData.roomNumber || initialData.room_number || '');
         setRemark(initialData.remark || '');
+        setCreatedAt(initialData.createdAt || initialData.created_at || '');
     } else if (!initialData && branches && branches.length > 0 && !branchId) {
       setBranchId(branches[0].id);
     }
@@ -171,6 +173,7 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
       online_paid: onlinePaid ? parseFloat(onlinePaid) : 0.0,
       room_number: roomNumber.trim(),
       remark: remark.trim() || null,
+      created_at: createdAt || null,
     };
 
     // This log is crucial
@@ -202,6 +205,7 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
         setOnlinePaid('');
         setRoomNumber('');
         setRemark('');
+        setCreatedAt('');
       }
     } catch (error: any) {
       console.error('Error submitting student data (HostelStudentForm.tsx):', error);
@@ -428,6 +432,15 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
             <option value="Female">Female</option>
             <option value="Other">Other</option>
           </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Created Date</label>
+          <input
+            type="date"
+            value={createdAt}
+            onChange={(e) => setCreatedAt(e.target.value)}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 transition-colors"
+          />
         </div>
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">Remark</label>

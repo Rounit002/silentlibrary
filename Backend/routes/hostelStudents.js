@@ -186,7 +186,7 @@ module.exports = (pool) => {
       profile_image_url, aadhar_image_url, religion, food_preference, gender,
       security_money_cash, security_money_online,
       registration_number, stay_start_date, stay_end_date, total_fee, cash_paid,
-      online_paid, room_number, remark,
+      online_paid, room_number, remark, created_at,
     } = req.body;
 
     // Validations
@@ -234,13 +234,13 @@ module.exports = (pool) => {
           profile_image_url, aadhar_image_url, religion, food_preference, gender, 
           security_money, security_money_cash, security_money_online, 
           registration_number, room_number, remark, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, CURRENT_TIMESTAMP) 
         RETURNING *`;
       const studentInsertParams = [
         parsedBranchId, name.trim(), address || null, father_name || null, mother_name || null,
         aadhar_number || null, phone_number || null, profile_image_url || null, aadhar_image_url || null,
         String(religion).trim(), food_preference, gender, totalSecurityMoney, parsedSecurityCash, parsedSecurityOnline,
-        registration_number || null, String(room_number).trim(), remark || null
+        registration_number || null, String(room_number).trim(), remark || null, created_at || null
       ];
       const studentResult = await pool.query(studentInsertQuery, studentInsertParams);
       const newStudent = studentResult.rows[0];
@@ -549,7 +549,7 @@ module.exports = (pool) => {
 
     const {
       stay_start_date, stay_end_date, total_fee, cash_paid, online_paid,
-      room_number, remark,
+      room_number, remark, created_at,
     } = req.body;
 
     if (!stay_start_date || !stay_end_date || total_fee === undefined || room_number === undefined || String(room_number).trim() === '') {
@@ -581,11 +581,21 @@ module.exports = (pool) => {
             INSERT INTO hostel_student_history (
                 student_id, stay_start_date, stay_end_date, total_fee, cash_paid, online_paid, due_amount, 
                 security_money_cash, security_money_online, room_number, remark, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, 0.00, 0.00, $8, $9, CURRENT_TIMESTAMP) 
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
             RETURNING *`;
       const historyInsertParams = [
-        studentId, stay_start_date, stay_end_date, totalFeeNum, cashPaidNum, onlinePaidNum,
-        dueAmount, String(room_number).trim(), remark || null
+        studentId,
+        stay_start_date,
+        stay_end_date,
+        totalFeeNum,
+        cashPaidNum,
+        onlinePaidNum,
+        dueAmount,
+        0.0,
+        0.0,
+        String(room_number).trim(),
+        remark || null,
+        created_at || null
       ];
       const historyResult = await pool.query(historyInsertQuery, historyInsertParams);
 

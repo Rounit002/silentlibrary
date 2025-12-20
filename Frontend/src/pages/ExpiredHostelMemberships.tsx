@@ -28,6 +28,7 @@ const ExpiredHostelMemberships: React.FC = () => {
   const [remark, setRemark] = useState('');
   const [totalPaid, setTotalPaid] = useState(0);
   const [dueAmount, setDueAmount] = useState(0);
+  const [createdAt, setCreatedAt] = useState('');
 
   useEffect(() => {
     const fetchExpiredStudents = async () => {
@@ -69,6 +70,7 @@ const ExpiredHostelMemberships: React.FC = () => {
     setOnlinePaid('');
     setRoomNumber('');
     setRemark('');
+    setCreatedAt('');
     setIsRenewModalOpen(true);
   };
 
@@ -86,6 +88,7 @@ const ExpiredHostelMemberships: React.FC = () => {
         online_paid: parseFloat(onlinePaid) || 0,
         room_number: roomNumber,
         remark,
+        created_at: createdAt || null,
       });
       toast.success('Student renewed successfully');
       setIsRenewModalOpen(false);
@@ -241,6 +244,15 @@ const ExpiredHostelMemberships: React.FC = () => {
                         value={`₹${dueAmount.toFixed(2)}`}
                         disabled
                         className="w-full p-2 border rounded-md bg-gray-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Created Date</label>
+                      <input
+                        type="date"
+                        value={createdAt}
+                        onChange={(e) => setCreatedAt(e.target.value)}
+                        className="w-full p-2 border rounded-md"
                       />
                     </div>
                     <div>
