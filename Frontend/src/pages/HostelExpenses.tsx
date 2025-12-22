@@ -163,6 +163,16 @@ const HostelExpenses: React.FC = () => {
   // Helper to format date string
   const formatDate = (dateString: string) => dateString.split('T')[0];
 
+  // Helper to convert month name to number for sorting
+  const monthNameToNumber = (monthName: string): number => {
+    const months: Record<string, number> = {
+      'January': 0, 'February': 1, 'March': 2, 'April': 3,
+      'May': 4, 'June': 5, 'July': 6, 'August': 7,
+      'September': 8, 'October': 9, 'November': 10, 'December': 11
+    };
+    return months[monthName] ?? 0;
+  };
+
   // Group expenses by month and year for display
   const groupedExpenses = expenses.reduce((acc, exp) => {
     const [year, month] = formatDate(exp.date).split('-');
@@ -183,24 +193,24 @@ const HostelExpenses: React.FC = () => {
     (parseFloat(formData.cash||'0') + parseFloat(formData.online||'0')).toFixed(2);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#fef9f6]">
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
       <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed}/>
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {loading
           ? <div className="text-center text-gray-500">Loading...</div>
           : <motion.div className="max-w-6xl mx-auto"
               initial={{opacity:0,y:24}} animate={{opacity:1,y:0}} transition={{duration:0.5}}>
-              <motion.h1 className="text-2xl md:text-3xl font-bold mb-6"
+              <motion.h1 className="text-2xl md:text-3xl font-bold mb-6 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent"
                 initial={{opacity:0,y:-10}} animate={{opacity:1,y:0}} transition={{delay:0.1}}>
                 Hostel Expenses
               </motion.h1>
 
               {/* Branch Filter */}
-              <motion.div className="bg-white shadow rounded-lg p-6 mb-4"
+              <motion.div className="bg-white/80 backdrop-blur-sm border border-purple-200/50 rounded-xl p-6 mb-4 shadow-lg shadow-purple-100/50"
                 initial={{opacity:0,scale:0.98}} animate={{opacity:1,scale:1}} transition={{delay:0.15}}>
-                <label className="font-semibold mb-2 block">Filter by Branch</label>
+                <label className="font-semibold mb-2 block text-purple-700">Filter by Branch</label>
                 <select value={selectedBranchId||''} onChange={handleBranchChange}
-                  className="w-full sm:w-1/3 px-4 py-2 border rounded">
+                  className="w-full sm:w-1/3 px-4 py-2 border border-purple-200/50 rounded-lg bg-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300/50 focus:border-purple-300/50 transition-all">
                   <option value="">All Branches</option>
                   {branches.map(b=>(
                     <option key={b.id} value={b.id}>{b.name}</option>
@@ -209,19 +219,19 @@ const HostelExpenses: React.FC = () => {
               </motion.div>
 
               {/* Add/Edit Form */}
-              <motion.div className="bg-white shadow rounded-lg p-6 mb-8"
+              <motion.div className="bg-white/80 backdrop-blur-sm border border-purple-200/50 rounded-xl p-6 mb-8 shadow-lg shadow-purple-100/50"
                 initial={{opacity:0,scale:0.98}} animate={{opacity:1,scale:1}} transition={{delay:0.15}}>
-                <h2 className="text-lg font-semibold mb-4">
+                <h2 className="text-lg font-semibold mb-4 text-purple-700">
                   {editingExpense ? 'Edit Hostel Expense' : 'Add New Hostel Expense'}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   
                   {/* Product Dropdown */}
                   <div>
-                    <label className="block text-sm">Product</label>
+                    <label className="block text-sm font-medium text-purple-600 mb-1">Product</label>
                     <select name="title" value={formData.title}
                       onChange={handleChange}
-                      className="w-full mt-1 px-4 py-2 border rounded">
+                      className="w-full mt-1 px-4 py-2 border border-purple-200/50 rounded-lg bg-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300/50 focus:border-purple-300/50 transition-all">
                       <option value="">Select a product</option>
                       {products.map(product => (
                         <option key={product.id} value={product.name}>
@@ -233,39 +243,39 @@ const HostelExpenses: React.FC = () => {
 
                   {/* Cash */}
                   <div>
-                    <label className="block text-sm">Cash Amount</label>
+                    <label className="block text-sm font-medium text-purple-600 mb-1">Cash Amount</label>
                     <input type="number" name="cash" value={formData.cash}
                       onChange={handleChange} step="0.01" placeholder="0.00"
-                      className="w-full mt-1 px-4 py-2 border rounded"/>
+                      className="w-full mt-1 px-4 py-2 border border-purple-200/50 rounded-lg bg-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300/50 focus:border-purple-300/50 transition-all"/>
                   </div>
                   {/* Online */}
                   <div>
-                    <label className="block text-sm">Online Amount</label>
+                    <label className="block text-sm font-medium text-purple-600 mb-1">Online Amount</label>
                     <input type="number" name="online" value={formData.online}
                       onChange={handleChange} step="0.01" placeholder="0.00"
-                      className="w-full mt-1 px-4 py-2 border rounded"/>
+                      className="w-full mt-1 px-4 py-2 border border-purple-200/50 rounded-lg bg-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300/50 focus:border-purple-300/50 transition-all"/>
                   </div>
                   {/* Date */}
                   <div>
-                    <label className="block text-sm">Date</label>
+                    <label className="block text-sm font-medium text-purple-600 mb-1">Date</label>
                     <input type="date" name="date" value={formData.date}
                       onChange={handleChange}
-                      className="w-full mt-1 px-4 py-2 border rounded"/>
+                      className="w-full mt-1 px-4 py-2 border border-purple-200/50 rounded-lg bg-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300/50 focus:border-purple-300/50 transition-all"/>
                   </div>
                   {/* Remark */}
                   <div className="lg:col-span-2">
-                    <label className="block text-sm">Remark</label>
+                    <label className="block text-sm font-medium text-purple-600 mb-1">Remark</label>
                     <input name="remark" value={formData.remark}
                       onChange={handleChange}
                       placeholder="Optional remark"
-                      className="w-full mt-1 px-4 py-2 border rounded"/>
+                      className="w-full mt-1 px-4 py-2 border border-purple-200/50 rounded-lg bg-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300/50 focus:border-purple-300/50 transition-all"/>
                   </div>
                   {/* Branch */}
                   <div>
-                    <label className="block text-sm">Branch</label>
+                    <label className="block text-sm font-medium text-purple-600 mb-1">Branch</label>
                     <select name="branchId" value={formData.branchId}
                       onChange={handleChange}
-                      className="w-full mt-1 px-4 py-2 border rounded">
+                      className="w-full mt-1 px-4 py-2 border border-purple-200/50 rounded-lg bg-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300/50 focus:border-purple-300/50 transition-all">
                       <option value="">Global (No Branch)</option>
                       {branches.map(b=>(
                         <option key={b.id} value={b.id}>{b.name}</option>
@@ -274,17 +284,17 @@ const HostelExpenses: React.FC = () => {
                   </div>
                 </div>
                 <div className="mt-6 flex justify-between items-center">
-                  <div className="font-semibold">
+                  <div className="font-semibold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                     Total Amount: ₹{totalAmountDisplay}
                   </div>
                   <div className="space-x-2">
                     <button onClick={handleSubmit}
-                      className="bg-purple-600 text-white px-6 py-2 rounded hover:bg-purple-700">
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all shadow-md shadow-purple-200/50">
                       {editingExpense ? 'Update' : 'Add'}
                     </button>
                     {editingExpense && (
                       <button onClick={()=>setEditingExpense(null)}
-                        className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700">
+                        className="bg-gradient-to-r from-gray-400 to-gray-500 text-white px-6 py-2 rounded-lg hover:from-gray-500 hover:to-gray-600 transition-all shadow-md shadow-gray-200/50">
                         Cancel
                       </button>
                     )}
@@ -297,8 +307,10 @@ const HostelExpenses: React.FC = () => {
                 .sort(([a],[b]) => {
                   const [ma, ya] = a.split(' ');
                   const [mb, yb] = b.split(' ');
-                  return new Date(`${yb}-${mb}-01`).getTime()
-                       - new Date(`${ya}-${ma}-01`).getTime();
+                  const monthA = monthNameToNumber(ma);
+                  const monthB = monthNameToNumber(mb);
+                  return new Date(Number(yb), monthB).getTime()
+                       - new Date(Number(ya), monthA).getTime();
                 })
                 .map(([monthYear, exps], idx) => {
                   const total = exps.reduce((sum,e)=> sum+ e.amount, 0);
