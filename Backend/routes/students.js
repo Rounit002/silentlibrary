@@ -423,7 +423,7 @@ router.get('/expiring-soon', checkAdminOrStaff, async (req, res) => {
       const {
         name, email, phone, address, branch_id, membership_start, membership_end,
         total_fee, amount_paid, shift_ids, seat_id, cash, online, security_money, remark, profile_image_url,
-        registration_number, father_name, aadhar_number // New fields
+        registration_number, father_name, aadhar_number, created_at // New fields
       } = req.body;
 
       console.log('Received request body for POST /students:', req.body);
@@ -517,17 +517,23 @@ router.get('/expiring-soon', checkAdminOrStaff, async (req, res) => {
         finalRegistrationNumber = regNumResult.rows[0].reg_number;
       }
 
+      const createdAtValue = (typeof created_at === 'string' && created_at.trim() !== '') ? created_at.trim() : null;
+
       const result = await client.query(
         `INSERT INTO students (
           name, email, phone, address, branch_id, membership_start, membership_end,
           total_fee, amount_paid, due_amount, cash, online, security_money, remark, profile_image_url, status,
-          registration_number, father_name, aadhar_number
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+          registration_number, father_name, aadhar_number, created_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7,
+          $8, $9, $10, $11, $12, $13, $14, $15, $16,
+          $17, $18, $19, COALESCE($20::timestamp, NOW())
+        )
         RETURNING *`,
         [
           name, email, phone, address, branchIdNum, membership_start, membership_end,
           feeValue, paidValue, dueAmount, cashValue, onlineValue, securityMoneyValue, remark || null, profile_image_url || null, status,
-          finalRegistrationNumber, father_name || null, aadhar_number || null
+          finalRegistrationNumber, father_name || null, aadhar_number || null, createdAtValue
         ]
       );
       const student = result.rows[0];
@@ -556,14 +562,19 @@ if (shiftIdsNum.length > 0) {
           seat_id, shift_id, branch_id,
           registration_number, father_name, aadhar_number,
           changed_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW())`,
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+          $12, $13, $14, $15, $16, $17, $18, $19, $20, $21,
+          COALESCE($22::timestamp, NOW())
+        )`,
         [
           student.id, student.name, student.email, student.phone, student.address,
           student.membership_start, student.membership_end, student.status,
           student.total_fee, student.amount_paid, student.due_amount,
           student.cash, student.online, student.security_money, student.remark || '',
           seatIdNum, firstShiftId, branchIdNum,
-          student.registration_number, student.father_name, student.aadhar_number
+          student.registration_number, student.father_name, student.aadhar_number,
+          createdAtValue
         ]
       );
 

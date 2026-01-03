@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Trash2, AlertTriangle } from 'lucide-react';
+import { Trash2, AlertTriangle, Download } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import api from '../services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -85,6 +85,7 @@ const CollectionDue: React.FC = () => {
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online' | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -272,6 +273,31 @@ const CollectionDue: React.FC = () => {
     }
   };
 
+  const handleExportCsv = async () => {
+    try {
+      setIsExporting(true);
+      const params: { month?: string; branchId?: number } = {};
+      if (selectedMonth) params.month = selectedMonth;
+      if (selectedBranchId) params.branchId = selectedBranchId;
+      const csvBlob = await api.exportCollectionsCsv(params);
+      const url = window.URL.createObjectURL(csvBlob);
+      const link = document.createElement('a');
+      const suffix = selectedMonth || 'all';
+      link.href = url;
+      link.download = `collection_due_${suffix}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Export ready');
+    } catch (error: any) {
+      console.error('Failed to export CSV:', error);
+      toast.error(error.message || 'Failed to export CSV');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#fef9f6]">
       <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
@@ -338,6 +364,14 @@ const CollectionDue: React.FC = () => {
                   </option>
                 ))}
               </select>
+              <button
+                onClick={handleExportCsv}
+                disabled={isExporting}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <Download className="h-4 w-4" />
+                {isExporting ? 'Exporting...' : 'Export CSV'}
+              </button>
             </motion.div>
 
             {user?.role === 'admin' && ( // Wrap the aggregated financial data section in a conditional render

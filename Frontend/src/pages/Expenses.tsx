@@ -50,11 +50,13 @@ const parseExpensesData = (data: any): Expense[] => {
 };
 
 const Expenses: React.FC = () => {
+  const currentMonth = new Date().toISOString().slice(0, 7);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expenses,     setExpenses]     = useState<Expense[]>([]);
   const [products,     setProducts]     = useState<Product[]>([]);
   const [branches,     setBranches]     = useState<Branch[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<number>();
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth);
   const [formData,     setFormData]     = useState({
     title: '', cash: '', online: '', date: '', remark: '', branchId: ''
   });
@@ -62,6 +64,7 @@ const Expenses: React.FC = () => {
   const [customTitle,  setCustomTitle]  = useState('');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [loading,      setLoading]      = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   // load branches
   useEffect(() => {
@@ -72,19 +75,25 @@ const Expenses: React.FC = () => {
 
   // load expenses + products
   useEffect(() => {
-    setLoading(true);
-    api.getExpenses(selectedBranchId)
-      .then(data => {
+    const fetchExpenses = async () => {
+      setLoading(true);
+      try {
+        const data = await api.getExpenses({
+          branchId: selectedBranchId,
+          month: selectedMonth || undefined
+        });
         setExpenses(parseExpensesData(data));
         setProducts(Array.isArray(data.products)? data.products : []);
-      })
-      .catch(() => {
+      } catch {
         toast.error('Failed to load expenses');
         setExpenses([]);
         setProducts([]);
-      })
-      .finally(() => setLoading(false));
-  }, [selectedBranchId]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchExpenses();
+  }, [selectedBranchId, selectedMonth]);
 
   // when editingExpense changes, populate form
   useEffect(() => {
@@ -120,6 +129,33 @@ const Expenses: React.FC = () => {
   const handleCustomTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => setCustomTitle(e.target.value);
   const handleBranchChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
     setSelectedBranchId(e.target.value ? parseInt(e.target.value,10) : undefined);
+  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setSelectedMonth(e.target.value);
+
+  const handleExportCsv = async () => {
+    try {
+      setIsExporting(true);
+      const csvBlob = await api.exportExpensesCsv({
+        branchId: selectedBranchId,
+        month: selectedMonth || undefined
+      });
+      const url = window.URL.createObjectURL(csvBlob);
+      const link = document.createElement('a');
+      const suffix = selectedMonth && selectedMonth.trim() ? selectedMonth : 'all';
+      link.href = url;
+      link.download = `expenses_${suffix}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Export ready');
+    } catch (error: any) {
+      console.error('Failed to export expenses CSV:', error);
+      toast.error(error.message || 'Failed to export CSV');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     const finalTitle = isOtherTitle && customTitle ? customTitle : formData.title;
@@ -146,7 +182,10 @@ const Expenses: React.FC = () => {
         toast.success('Expense added');
       }
       // reload list
-      const data = await api.getExpenses(selectedBranchId);
+      const data = await api.getExpenses({
+        branchId: selectedBranchId,
+        month: selectedMonth || undefined
+      });
       setExpenses(parseExpensesData(data));
     } catch {
       toast.error('Failed to save expense');
@@ -202,17 +241,39 @@ const Expenses: React.FC = () => {
                 💸 Expenses
               </motion.h1>
 
-              {/* Branch Filter */}
-              <motion.div className="bg-white shadow rounded-lg p-6 mb-4"
+              {/* Filters */}
+              <motion.div className="bg-white shadow rounded-lg p-6 mb-4 space-y-4"
                 initial={{opacity:0,scale:0.98}} animate={{opacity:1,scale:1}} transition={{delay:0.15}}>
-                <label className="font-semibold mb-2 block">Filter by Branch</label>
-                <select value={selectedBranchId||''} onChange={handleBranchChange}
-                  className="w-full sm:w-1/3 px-4 py-2 border rounded">
-                  <option value="">All Branches</option>
-                  {branches.map(b=>(
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div>
+                      <label className="font-semibold mb-2 block">Filter by Branch</label>
+                      <select value={selectedBranchId||''} onChange={handleBranchChange}
+                        className="w-full sm:w-48 px-4 py-2 border rounded">
+                        <option value="">All Branches</option>
+                        {branches.map(b=>(
+                          <option key={b.id} value={b.id}>{b.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="font-semibold mb-2 block">Filter by Month</label>
+                      <input
+                        type="month"
+                        value={selectedMonth}
+                        onChange={handleMonthChange}
+                        className="w-full sm:w-48 px-4 py-2 border rounded"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleExportCsv}
+                    disabled={isExporting}
+                    className="inline-flex items-center justify-center gap-2 rounded-md bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {isExporting ? 'Exporting...' : 'Export CSV'}
+                  </button>
+                </div>
               </motion.div>
 
               {/* Add/Edit Form */}

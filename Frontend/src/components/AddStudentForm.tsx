@@ -44,6 +44,7 @@ interface FormData {
   branchId: number | null;
   membershipStart: string;
   membershipEnd: string;
+  createdAt: string;
   seatId: number | null;
   shiftId: number | null;
   totalFee: string;
@@ -65,6 +66,7 @@ const AddStudentForm: React.FC = () => {
     branchId: null,
     membershipStart: '',
     membershipEnd: '',
+    createdAt: '',
     seatId: null,
     shiftId: null,
     totalFee: '',
@@ -239,6 +241,7 @@ const AddStudentForm: React.FC = () => {
         branchId: formData.branchId!,
         membershipStart: formData.membershipStart,
         membershipEnd: formData.membershipEnd,
+        createdAt: formData.createdAt || undefined,
         seatId: formData.seatId !== null ? formData.seatId : null,
         shiftIds: formData.shiftId !== null ? [formData.shiftId] : [],
         totalFee: formData.totalFee ? parseFloat(formData.totalFee) : 0,
@@ -369,6 +372,19 @@ const AddStudentForm: React.FC = () => {
             id="membershipEnd"
             name="membershipEnd"
             value={formData.membershipEnd}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
+          />
+        </div>
+        <div>
+          <label htmlFor="createdAt" className="block text-sm font-medium text-gray-700 mb-1">
+            Created Date
+          </label>
+          <input
+            type="date"
+            id="createdAt"
+            name="createdAt"
+            value={formData.createdAt}
             onChange={handleChange}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
           />

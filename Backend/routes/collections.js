@@ -1,10 +1,25 @@
 module.exports = (pool) => {
   const router = require('express').Router();
-  const { checkAdmin, checkAdminOrStaff } = require('./auth');
+  const { checkAdminOrStaff } = require('./auth');
 
-  router.get('/', checkAdminOrStaff, async (req, res) => {
-    try {
-      let query = `
+  const ensurePreviousMonthDuePaymentsTable = async (executor = pool) => {
+    await executor.query(`
+      CREATE TABLE IF NOT EXISTS previous_month_due_payments (
+        id SERIAL PRIMARY KEY,
+        history_id INTEGER NOT NULL REFERENCES student_membership_history(id) ON DELETE CASCADE,
+        student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+        amount NUMERIC(12,2) NOT NULL,
+        method VARCHAR(10) NOT NULL CHECK (method IN ('cash','online')),
+        paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        month_tag VARCHAR(7) NOT NULL,
+        original_month VARCHAR(7) NOT NULL
+      );
+    `);
+  };
+
+  const fetchCollectionsData = async ({ month, branchId }) => {
+    let query = `
         SELECT 
           smh.id as history_id, 
           smh.student_id, 
@@ -25,167 +40,208 @@ module.exports = (pool) => {
         LEFT JOIN schedules sch ON smh.shift_id = sch.id
         LEFT JOIN branches b ON smh.branch_id = b.id
       `;
-      const params = [];
-      let paramIndex = 1;
+    const params = [];
+    let paramIndex = 1;
 
-      if (req.query.month) {
-        const monthParam = req.query.month;
-        if (!/^\d{4}-\d{2}$/.test(monthParam)) {
-          return res.status(400).json({ message: 'Invalid month format. Use YYYY-MM' });
-        }
-        const [year, month] = monthParam.split('-');
-        query += ` WHERE EXTRACT(YEAR FROM smh.changed_at) = $${paramIndex} AND EXTRACT(MONTH FROM smh.changed_at) = $${paramIndex + 1}`;
-        params.push(year, month);
-        paramIndex += 2;
+    const normalizedMonth = (typeof month === 'string' && month.trim() !== '') ? month : null;
+    let normalizedBranchId = null;
+    if (month && normalizedMonth && !/^\d{4}-\d{2}$/.test(normalizedMonth)) {
+      const error = new Error('Invalid month format. Use YYYY-MM');
+      error.status = 400;
+      throw error;
+    }
+    if (branchId !== undefined && branchId !== null && branchId !== '') {
+      const parsedBranchId = parseInt(branchId, 10);
+      if (isNaN(parsedBranchId)) {
+        const error = new Error('Invalid branch ID');
+        error.status = 400;
+        throw error;
+      }
+      normalizedBranchId = parsedBranchId;
+    }
+
+    if (normalizedMonth) {
+      const [year, monthValue] = normalizedMonth.split('-');
+      query += ` WHERE EXTRACT(YEAR FROM smh.changed_at) = $${paramIndex} AND EXTRACT(MONTH FROM smh.changed_at) = $${paramIndex + 1}`;
+      params.push(year, monthValue);
+      paramIndex += 2;
+    }
+
+    if (normalizedBranchId) {
+      query += (params.length > 0 ? ' AND' : ' WHERE') + ` smh.branch_id = $${paramIndex}`;
+      params.push(normalizedBranchId);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY smh.name`;
+    const result = await pool.query(query, params);
+
+    let previousDuePaidAdjustments = { totalAmount: 0, totalCash: 0, totalOnline: 0 };
+    let previousDuePaid = {
+      totalAmount: 0,
+      totalCash: 0,
+      totalOnline: 0,
+      items: []
+    };
+
+    if (normalizedMonth) {
+      await ensurePreviousMonthDuePaymentsTable();
+
+      const adjParams = [normalizedMonth];
+      let adjQuery = `
+        SELECT 
+          COALESCE(SUM(amount),0) as total,
+          COALESCE(SUM(CASE WHEN method='cash' THEN amount ELSE 0 END),0) as cash_sum,
+          COALESCE(SUM(CASE WHEN method='online' THEN amount ELSE 0 END),0) as online_sum
+        FROM previous_month_due_payments
+        WHERE original_month = $1
+      `;
+      if (normalizedBranchId) {
+        adjQuery += ' AND branch_id = $2';
+        adjParams.push(normalizedBranchId);
+      }
+      const adjRes = await pool.query(adjQuery, adjParams);
+      if (adjRes.rows.length > 0) {
+        const r = adjRes.rows[0];
+        previousDuePaidAdjustments = {
+          totalAmount: parseFloat(r.total) || 0,
+          totalCash: parseFloat(r.cash_sum) || 0,
+          totalOnline: parseFloat(r.online_sum) || 0,
+        };
       }
 
-      if (req.query.branchId) {
-        const branchId = parseInt(req.query.branchId, 10);
-        if (isNaN(branchId)) {
-          return res.status(400).json({ message: 'Invalid branch ID' });
-        }
-        query += (paramIndex > 1 ? ' AND' : ' WHERE') + ` smh.branch_id = $${paramIndex}`;
-        params.push(branchId);
-        paramIndex++;
+      const pdpParams = [normalizedMonth];
+      let pdpQuery = `
+        SELECT p.id, p.history_id, p.student_id, p.branch_id, p.amount, p.method, p.paid_at, p.month_tag, p.original_month,
+               s.name as student_name, b.name as branch_name
+        FROM previous_month_due_payments p
+        LEFT JOIN students s ON p.student_id = s.id
+        LEFT JOIN branches b ON p.branch_id = b.id
+        WHERE p.month_tag = $1
+      `;
+      if (normalizedBranchId) {
+        pdpQuery += ' AND p.branch_id = $2';
+        pdpParams.push(normalizedBranchId);
       }
+      pdpQuery += ' ORDER BY p.paid_at DESC';
+      const pdpRes = await pool.query(pdpQuery, pdpParams);
 
-      query += ` ORDER BY smh.name`;
-      const result = await pool.query(query, params);
-
-      // Build adjustments summary for the requested month: sums of due payments paid later (do not mutate rows)
-      let previousDuePaidAdjustments = { totalAmount: 0, totalCash: 0, totalOnline: 0 };
-      if (req.query.month) {
-        // Ensure helper table exists before selecting
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS previous_month_due_payments (
-            id SERIAL PRIMARY KEY,
-            history_id INTEGER NOT NULL REFERENCES student_membership_history(id) ON DELETE CASCADE,
-            student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-            branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
-            amount NUMERIC(12,2) NOT NULL,
-            method VARCHAR(10) NOT NULL CHECK (method IN ('cash','online')),
-            paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            month_tag VARCHAR(7) NOT NULL,
-            original_month VARCHAR(7) NOT NULL
-          );
-        `);
-
-        const adjParams = [req.query.month];
-        let adjQuery = `
-          SELECT 
-            COALESCE(SUM(amount),0) as total,
-            COALESCE(SUM(CASE WHEN method='cash' THEN amount ELSE 0 END),0) as cash_sum,
-            COALESCE(SUM(CASE WHEN method='online' THEN amount ELSE 0 END),0) as online_sum
-          FROM previous_month_due_payments
-          WHERE original_month = $1
-        `;
-        if (req.query.branchId) {
-          const b = parseInt(req.query.branchId, 10);
-          if (!isNaN(b)) {
-            adjQuery += ' AND branch_id = $2';
-            adjParams.push(b);
-          }
-        }
-        const adjRes = await pool.query(adjQuery, adjParams);
-        if (adjRes.rows.length > 0) {
-          const r = adjRes.rows[0];
-          previousDuePaidAdjustments = {
-            totalAmount: parseFloat(r.total) || 0,
-            totalCash: parseFloat(r.cash_sum) || 0,
-            totalOnline: parseFloat(r.online_sum) || 0,
-          };
-        }
-      }
-
-      const collections = result.rows.map(row => ({
-        historyId: row.history_id,
-        studentId: row.student_id,
-        name: row.name,
-        shiftTitle: row.shift_title,
-        totalFee: row.total_fee !== null && row.total_fee !== undefined ? parseFloat(row.total_fee) : 0,
-        amountPaid: row.amount_paid !== null && row.amount_paid !== undefined ? parseFloat(row.amount_paid) : 0,
-        dueAmount: row.due_amount !== null && row.due_amount !== undefined ? parseFloat(row.due_amount) : 0,
-        cash: row.cash !== null && row.cash !== undefined ? parseFloat(row.cash) : 0,
-        online: row.online !== null && row.online !== undefined ? parseFloat(row.online) : 0,
-        securityMoney: row.security_money !== null && row.security_money !== undefined ? parseFloat(row.security_money) : 0,
-        remark: row.remark || '',
-        createdAt: row.created_at,
-        paymentDate: row.payment_date,
-        branchId: row.branch_id,
-        branchName: row.branch_name
+      const items = pdpRes.rows.map(r => ({
+        id: r.id,
+        historyId: r.history_id,
+        studentId: r.student_id,
+        studentName: r.student_name,
+        branchId: r.branch_id,
+        branchName: r.branch_name,
+        amount: parseFloat(r.amount) || 0,
+        method: r.method,
+        paidAt: r.paid_at,
+        monthTag: r.month_tag,
+        originalMonth: r.original_month,
       }));
-      // Additionally, include previous-month due payments attributed to the requested month
-      let previousDuePaid = {
-        totalAmount: 0,
-        totalCash: 0,
-        totalOnline: 0,
-        items: []
-      };
+      const totalAmount = items.reduce((s, it) => s + it.amount, 0);
+      const totalCash = items.filter(it => it.method === 'cash').reduce((s, it) => s + it.amount, 0);
+      const totalOnline = items.filter(it => it.method === 'online').reduce((s, it) => s + it.amount, 0);
+      previousDuePaid = { totalAmount, totalCash, totalOnline, items };
+    }
 
-      // Only attempt to read when a month filter is provided
-      if (req.query.month) {
-        const [yrStr, moStr] = String(req.query.month).split('-');
-        const yearNum = parseInt(yrStr);
-        const monthNum = parseInt(moStr);
-        if (!isNaN(yearNum) && !isNaN(monthNum)) {
-          // Ensure table exists (safe to run repeatedly)
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS previous_month_due_payments (
-              id SERIAL PRIMARY KEY,
-              history_id INTEGER NOT NULL REFERENCES student_membership_history(id) ON DELETE CASCADE,
-              student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-              branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
-              amount NUMERIC(12,2) NOT NULL,
-              method VARCHAR(10) NOT NULL CHECK (method IN ('cash','online')),
-              paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-              month_tag VARCHAR(7) NOT NULL, -- YYYY-MM representing the month to attribute
-              original_month VARCHAR(7) NOT NULL -- YYYY-MM of the history record where due existed
-            );
-          `);
+    const collections = result.rows.map(row => ({
+      historyId: row.history_id,
+      studentId: row.student_id,
+      name: row.name,
+      shiftTitle: row.shift_title,
+      totalFee: row.total_fee !== null && row.total_fee !== undefined ? parseFloat(row.total_fee) : 0,
+      amountPaid: row.amount_paid !== null && row.amount_paid !== undefined ? parseFloat(row.amount_paid) : 0,
+      dueAmount: row.due_amount !== null && row.due_amount !== undefined ? parseFloat(row.due_amount) : 0,
+      cash: row.cash !== null && row.cash !== undefined ? parseFloat(row.cash) : 0,
+      online: row.online !== null && row.online !== undefined ? parseFloat(row.online) : 0,
+      securityMoney: row.security_money !== null && row.security_money !== undefined ? parseFloat(row.security_money) : 0,
+      remark: row.remark || '',
+      createdAt: row.created_at,
+      paymentDate: row.payment_date,
+      branchId: row.branch_id,
+      branchName: row.branch_name
+    }));
 
-          const pdpParams = [req.query.month];
-          let pdpQuery = `
-            SELECT p.id, p.history_id, p.student_id, p.branch_id, p.amount, p.method, p.paid_at, p.month_tag, p.original_month,
-                   s.name as student_name, b.name as branch_name
-            FROM previous_month_due_payments p
-            LEFT JOIN students s ON p.student_id = s.id
-            LEFT JOIN branches b ON p.branch_id = b.id
-            WHERE p.month_tag = $1
-          `;
-          if (req.query.branchId) {
-            const branchId = parseInt(req.query.branchId, 10);
-            if (!isNaN(branchId)) {
-              pdpQuery += ' AND p.branch_id = $2';
-              pdpParams.push(branchId);
-            }
-          }
-          pdpQuery += ' ORDER BY p.paid_at DESC';
-          const pdpRes = await pool.query(pdpQuery, pdpParams);
+    return { collections, previousDuePaid, previousDuePaidAdjustments };
+  };
 
-          const items = pdpRes.rows.map(r => ({
-            id: r.id,
-            historyId: r.history_id,
-            studentId: r.student_id,
-            studentName: r.student_name,
-            branchId: r.branch_id,
-            branchName: r.branch_name,
-            amount: parseFloat(r.amount) || 0,
-            method: r.method,
-            paidAt: r.paid_at,
-            monthTag: r.month_tag,
-            originalMonth: r.original_month,
-          }));
-          const totalAmount = items.reduce((s, it) => s + it.amount, 0);
-          const totalCash = items.filter(it => it.method === 'cash').reduce((s, it) => s + it.amount, 0);
-          const totalOnline = items.filter(it => it.method === 'online').reduce((s, it) => s + it.amount, 0);
-          previousDuePaid = { totalAmount, totalCash, totalOnline, items };
-        }
-      }
+  const escapeCsvValue = (value) => {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    const stringValue = String(value).replace(/"/g, '""');
+    return /[",\n]/.test(stringValue) ? `"${stringValue}"` : stringValue;
+  };
 
-      res.json({ collections, previousDuePaid, previousDuePaidAdjustments });
+  const formatDateForCsv = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+  };
+
+  router.get('/', checkAdminOrStaff, async (req, res) => {
+    try {
+      const data = await fetchCollectionsData({ month: req.query.month, branchId: req.query.branchId });
+      res.json(data);
     } catch (err) {
       console.error('Error fetching collections:', err);
-      res.status(500).json({ message: 'Server error fetching collections', error: err.message });
+      const status = err.status || 500;
+      res.status(status).json({ message: err.status ? err.message : 'Server error fetching collections', error: err.message });
+    }
+  });
+
+  router.get('/export/csv', checkAdminOrStaff, async (req, res) => {
+    try {
+      const { collections } = await fetchCollectionsData({ month: req.query.month, branchId: req.query.branchId });
+      const headers = [
+        'History ID',
+        'Student ID',
+        'Student Name',
+        'Branch',
+        'Shift',
+        'Total Fee',
+        'Cash',
+        'Online',
+        'Amount Paid',
+        'Due Amount',
+        'Security Money',
+        'Remark',
+        'Created At',
+        'Payment Date'
+      ];
+
+      const rows = collections.length === 0
+        ? []
+        : collections.map((c) => ([
+            c.historyId,
+            c.studentId,
+            c.name,
+            c.branchName || '',
+            c.shiftTitle || '',
+            (c.totalFee || 0).toFixed(2),
+            (c.cash || 0).toFixed(2),
+            (c.online || 0).toFixed(2),
+            (c.amountPaid || 0).toFixed(2),
+            (c.dueAmount || 0).toFixed(2),
+            (c.securityMoney || 0).toFixed(2),
+            c.remark || '',
+            formatDateForCsv(c.createdAt),
+            formatDateForCsv(c.paymentDate)
+          ]));
+
+      const csvContent = [headers, ...rows].map((row) => row.map(escapeCsvValue).join(',')).join('\n');
+      const filenameSuffix = req.query.month && typeof req.query.month === 'string' && req.query.month.trim() !== ''
+        ? req.query.month
+        : 'all';
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="collection_due_${filenameSuffix}.csv"`);
+      res.status(200).send(csvContent);
+    } catch (err) {
+      console.error('Error exporting collections CSV:', err);
+      const status = err.status || 500;
+      res.status(status).json({ message: err.status ? err.message : 'Server error while exporting CSV', error: err.message });
     }
   });
 
@@ -276,21 +332,7 @@ module.exports = (pool) => {
       const historyMonthTag = historyChangedAt ? toYyyyMm(historyChangedAt) : null;
 
       if (historyMonthTag && historyMonthTag !== currentMonthTag) {
-        // Ensure helper table exists
-        await client.query(`
-          CREATE TABLE IF NOT EXISTS previous_month_due_payments (
-            id SERIAL PRIMARY KEY,
-            history_id INTEGER NOT NULL REFERENCES student_membership_history(id) ON DELETE CASCADE,
-            student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-            branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
-            amount NUMERIC(12,2) NOT NULL,
-            method VARCHAR(10) NOT NULL CHECK (method IN ('cash','online')),
-            paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            month_tag VARCHAR(7) NOT NULL,
-            original_month VARCHAR(7) NOT NULL
-          );
-        `);
-
+        await ensurePreviousMonthDuePaymentsTable(client);
         await client.query(
           `INSERT INTO previous_month_due_payments (history_id, student_id, branch_id, amount, method, paid_at, month_tag, original_month)
            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)`,

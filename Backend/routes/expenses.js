@@ -4,57 +4,148 @@ module.exports = (pool) => {
   const router = express.Router();
   const { checkAdminOrStaff } = require('./auth');
 
-  // Helper to format a row’s date to YYYY‑MM‑DD
   const serializeExpense = (row) => ({
-    id:         row.id,
-    title:      row.title,
-    amount:     parseFloat(row.amount || 0),
-    cash:       parseFloat(row.cash   || 0),
-    online:     parseFloat(row.online || 0),
-    date:       // if it's a Date object, convert, otherwise assume string
-      row.date instanceof Date
-        ? row.date.toISOString().split('T')[0]
-        : row.date,
-    remark:     row.remark,
-    branchId:   row.branch_id,
+    id: row.id,
+    title: row.title,
+    amount: parseFloat(row.amount || 0),
+    cash: parseFloat(row.cash || 0),
+    online: parseFloat(row.online || 0),
+    date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date,
+    remark: row.remark,
+    branchId: row.branch_id,
     branchName: row.branch_name || null,
   });
 
-  // GET all expenses
+  const escapeCsvValue = (value) => {
+    if (value === null || value === undefined) return '';
+    const stringValue = String(value).replace(/"/g, '""');
+    return /[",\n]/.test(stringValue) ? `"${stringValue}"` : stringValue;
+  };
+
+  const formatDate = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
+  };
+
+  const normalizeBranchId = (branchId) => {
+    if (branchId === undefined || branchId === null || branchId === '') return null;
+    const parsed = parseInt(branchId, 10);
+    if (isNaN(parsed)) {
+      const error = new Error('Invalid branch ID');
+      error.status = 400;
+      throw error;
+    }
+    return parsed;
+  };
+
+  const normalizeMonth = (month) => {
+    if (!month || typeof month !== 'string' || !month.trim()) return null;
+    const trimmed = month.trim();
+    if (!/^\d{4}-\d{2}$/.test(trimmed)) {
+      const error = new Error('Invalid month format. Use YYYY-MM');
+      error.status = 400;
+      throw error;
+    }
+    return trimmed;
+  };
+
+  const fetchExpenses = async ({ branchId, month }) => {
+    const normalizedBranchId = normalizeBranchId(branchId);
+    const normalizedMonth = normalizeMonth(month);
+
+    let sql = `
+      SELECT
+        e.id,
+        e.title,
+        e.amount,
+        e.cash,
+        e.online,
+        e.remark,
+        to_char(e.date, 'YYYY-MM-DD') AS date,
+        e.branch_id,
+        b.name AS branch_name
+      FROM expenses e
+      LEFT JOIN branches b ON e.branch_id = b.id
+    `;
+
+    const clauses = [];
+    const params = [];
+    let paramIndex = 1;
+
+    if (normalizedBranchId !== null) {
+      clauses.push(`e.branch_id = $${paramIndex}`);
+      params.push(normalizedBranchId);
+      paramIndex++;
+    }
+
+    if (normalizedMonth) {
+      clauses.push(`DATE_TRUNC('month', e.date) = DATE_TRUNC('month', TO_DATE($${paramIndex}, 'YYYY-MM'))`);
+      params.push(normalizedMonth);
+      paramIndex++;
+    }
+
+    if (clauses.length > 0) {
+      sql += ` WHERE ${clauses.join(' AND ')}`;
+    }
+
+    sql += ' ORDER BY e.date DESC';
+
+    const { rows } = await pool.query(sql, params);
+    return rows.map(serializeExpense);
+  };
+
   router.get('/', checkAdminOrStaff, async (req, res) => {
     try {
-      const { branchId } = req.query;
-      let sql = `
-        SELECT
-          e.id,
-          e.title,
-          e.amount,
-          e.cash,
-          e.online,
-          e.remark,
-          to_char(e.date, 'YYYY-MM-DD') AS date,
-          e.branch_id,
-          b.name AS branch_name
-        FROM expenses e
-        LEFT JOIN branches b ON e.branch_id = b.id
-      `;
-      const params = [];
-      if (branchId) {
-        sql += ` WHERE e.branch_id = $1`;
-        params.push(parseInt(branchId, 10));
-      }
-      sql += ` ORDER BY e.date DESC`;
-
-      const { rows } = await pool.query(sql, params);
+      const expenses = await fetchExpenses({ branchId: req.query.branchId, month: req.query.month });
       const productsResult = await pool.query('SELECT id, name FROM products');
 
       res.json({
-        expenses: rows.map(serializeExpense),
+        expenses,
         products: productsResult.rows
       });
     } catch (err) {
       console.error('Error fetching expenses:', err);
-      res.status(500).json({ message: 'Server error', error: err.message });
+      const status = err.status || 500;
+      res.status(status).json({ message: err.status ? err.message : 'Server error', error: err.message });
+    }
+  });
+
+  router.get('/export/csv', checkAdminOrStaff, async (req, res) => {
+    try {
+      const expenses = await fetchExpenses({ branchId: req.query.branchId, month: req.query.month });
+      const headers = [
+        'ID',
+        'Title',
+        'Cash',
+        'Online',
+        'Total Amount',
+        'Remark',
+        'Date',
+        'Branch'
+      ];
+
+      const rows = expenses.map((expense) => ([
+        expense.id,
+        expense.title,
+        expense.cash.toFixed(2),
+        expense.online.toFixed(2),
+        expense.amount.toFixed(2),
+        expense.remark || '',
+        formatDate(expense.date),
+        expense.branchName || 'Global'
+      ]));
+
+      const csvContent = [headers, ...rows].map((row) => row.map(escapeCsvValue).join(',')).join('\n');
+      const filenameSuffix = normalizeMonth(req.query.month) || 'all';
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="expenses_${filenameSuffix}.csv"`);
+      res.status(200).send(csvContent);
+    } catch (err) {
+      console.error('Error exporting expenses CSV:', err);
+      const status = err.status || 500;
+      res.status(status).json({ message: err.status ? err.message : 'Server error while exporting CSV', error: err.message });
     }
   });
 

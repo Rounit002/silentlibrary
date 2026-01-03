@@ -160,6 +160,9 @@ apiClient.interceptors.request.use((config) => {
 
 apiClient.interceptors.response.use(
   (response) => {
+    if (response.config?.responseType === 'blob') {
+      return response;
+    }
     if (response.data && typeof response.data === 'object') {
       response.data = transformKeysToCamelCase(response.data);
     }
@@ -536,6 +539,7 @@ const api = {
     branchId: number;
     membershipStart: string;
     membershipEnd: string;
+    createdAt?: string;
     totalFee: number;
     amountPaid: number;
     shiftIds: number[];
@@ -552,6 +556,7 @@ const api = {
         online: studentData.online ?? 0,
         remark: studentData.remark ?? null,
         profileImageUrl: studentData.profileImageUrl ?? null,
+        createdAt: studentData.createdAt || undefined,
       };
       console.log('[api.ts addStudent] Sending student data:', JSON.stringify(normalizedData, null, 2));
       const response = await apiClient.post('/students', normalizedData);
@@ -853,6 +858,14 @@ const api = {
     return response.data;
   },
 
+  exportCollectionsCsv: async (params: { month?: string; branchId?: number } = {}): Promise<Blob> => {
+    const response = await apiClient.get('/collections/export/csv', {
+      params,
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
   updateCollectionPayment: async (
     historyId: number,
     paymentDetails: { amount: number; method: 'cash' | 'online' }
@@ -871,10 +884,19 @@ const api = {
     return response.data;
   },
 
-  getExpenses: async (branchId?: number): Promise<{ expenses: Expense[]; products: Product[] }> => {
-    const params: any = {};
-    if (branchId) params.branchId = branchId;
-    const response = await apiClient.get('/expenses', { params });
+  getExpenses: async (params: { branchId?: number; month?: string } = {}): Promise<{ expenses: Expense[]; products: Product[] }> => {
+    const queryParams: any = {};
+    if (params.branchId) queryParams.branchId = params.branchId;
+    if (params.month) queryParams.month = params.month;
+    const response = await apiClient.get('/expenses', { params: queryParams });
+    return response.data;
+  },
+
+  exportExpensesCsv: async (params: { branchId?: number; month?: string } = {}): Promise<Blob> => {
+    const response = await apiClient.get('/expenses/export/csv', {
+      params,
+      responseType: 'blob'
+    });
     return response.data;
   },
 
