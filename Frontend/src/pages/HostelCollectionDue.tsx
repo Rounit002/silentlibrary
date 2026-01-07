@@ -56,6 +56,7 @@ const HostelCollectionDue: React.FC = () => {
   const [paymentType, setPaymentType] = useState<'cash' | 'online'>('cash');
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [collectionToDelete, setCollectionToDelete] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { user } = useAuth();
@@ -195,9 +196,9 @@ const HostelCollectionDue: React.FC = () => {
     }
     setPaymentLoading(true);
     try {
-      await api.updateHostelCollectionPayment(String(selectedCollection.historyId), {
-        payment_amount: payment,
-        payment_type: paymentType,
+      await api.updateHostelCollectionPayment(selectedCollection.historyId, {
+        paymentAmount: payment,
+        paymentType,
       });
       toast.success('Payment updated successfully!');
       setIsPayModalOpen(false);
@@ -234,6 +235,31 @@ const HostelCollectionDue: React.FC = () => {
     }
   };
 
+  const handleExportCsv = async () => {
+    try {
+      setIsExporting(true);
+      const params: { month?: string; branchId?: number } = {};
+      if (selectedMonth) params.month = selectedMonth;
+      if (selectedBranchId) params.branchId = parseInt(selectedBranchId, 10);
+      const csvBlob = await api.exportHostelCollectionsCsv(params);
+      const url = window.URL.createObjectURL(csvBlob);
+      const link = document.createElement('a');
+      const suffix = selectedMonth || 'all';
+      link.href = url;
+      link.download = `hostel_collections_${suffix}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Export ready');
+    } catch (error: any) {
+      console.error('[HostelCollectionDue] Failed to export CSV:', error);
+      toast.error(error.message || 'Failed to export CSV');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#fef9f6]">
       <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
@@ -257,7 +283,7 @@ const HostelCollectionDue: React.FC = () => {
           </p>
 
           <motion.div
-            className="mb-6 flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0"
+            className="mb-6 flex flex-col lg:flex-row lg:items-center lg:space-x-4 space-y-4 lg:space-y-0"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, duration: 0.3 }}
@@ -289,6 +315,13 @@ const HostelCollectionDue: React.FC = () => {
                 <option value="">All Branches</option>
                 {branches.map(branch => (<option key={branch.id} value={branch.id}>{branch.name}</option>))}
             </select>
+            <button
+              onClick={handleExportCsv}
+              disabled={isExporting}
+              className="inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-md text-sm font-medium shadow hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-60"
+            >
+              {isExporting ? 'Preparing...' : 'Export CSV'}
+            </button>
           </motion.div>
 
           {user?.role === 'admin' && (

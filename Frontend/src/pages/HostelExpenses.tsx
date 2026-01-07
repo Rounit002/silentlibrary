@@ -57,11 +57,13 @@ const HostelExpenses: React.FC = () => {
   const [branches,     setBranches]     = useState<Branch[]>([]);
   const [products,     setProducts]     = useState<Product[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<number>();
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
   const [formData,     setFormData]     = useState({
     title: '', cash: '', online: '', date: '', remark: '', branchId: ''
   });
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [loading,      setLoading]      = useState(true);
+  const [isExporting,  setIsExporting]  = useState(false);
 
   // Effect to load branches and products on component mount
   useEffect(() => {
@@ -76,18 +78,24 @@ const HostelExpenses: React.FC = () => {
 
   // Effect to load hostel expenses
   useEffect(() => {
-    setLoading(true);
-    api.getHostelExpenses(selectedBranchId)
-      .then(data => {
+    const fetchExpenses = async () => {
+      setLoading(true);
+      try {
+        const data = await api.getHostelExpenses({
+          branchId: selectedBranchId,
+          month: selectedMonth || undefined
+        });
         setExpenses(parseExpensesData(data));
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error(err);
         toast.error('Failed to load hostel expenses');
         setExpenses([]);
-      })
-      .finally(() => setLoading(false));
-  }, [selectedBranchId]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchExpenses();
+  }, [selectedBranchId, selectedMonth]);
 
   // Effect to populate the form when an expense is selected for editing
   useEffect(() => {
@@ -115,6 +123,9 @@ const HostelExpenses: React.FC = () => {
   const handleBranchChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
     setSelectedBranchId(e.target.value ? parseInt(e.target.value,10) : undefined);
 
+  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setSelectedMonth(e.target.value);
+
   // Form submission handler (for adding or updating)
   const handleSubmit = async () => {
     const totalAmt = parseFloat(formData.cash||'0') + parseFloat(formData.online||'0');
@@ -140,7 +151,10 @@ const HostelExpenses: React.FC = () => {
         toast.success('Hostel expense added');
       }
       // Reload the list after submission
-      const data = await api.getHostelExpenses(selectedBranchId);
+      const data = await api.getHostelExpenses({
+        branchId: selectedBranchId,
+        month: selectedMonth || undefined
+      });
       setExpenses(parseExpensesData(data));
     } catch {
       toast.error('Failed to save hostel expense');
@@ -189,6 +203,31 @@ const HostelExpenses: React.FC = () => {
     (e.branchId ? branches.find(b=>b.id===e.branchId)?.name : 'Global') ||
     'Global';
 
+  const handleExportCsv = async () => {
+    try {
+      setIsExporting(true);
+      const csvBlob = await api.exportHostelExpensesCsv({
+        branchId: selectedBranchId,
+        month: selectedMonth || undefined
+      });
+      const url = window.URL.createObjectURL(csvBlob);
+      const link = document.createElement('a');
+      const suffix = selectedMonth && selectedMonth.trim() ? selectedMonth : 'all';
+      link.href = url;
+      link.download = `hostel_expenses_${suffix}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Export ready');
+    } catch (error: any) {
+      console.error('Failed to export hostel expenses CSV:', error);
+      toast.error(error.message || 'Failed to export CSV');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const totalAmountDisplay =
     (parseFloat(formData.cash||'0') + parseFloat(formData.online||'0')).toFixed(2);
 
@@ -205,17 +244,35 @@ const HostelExpenses: React.FC = () => {
                 Hostel Expenses
               </motion.h1>
 
-              {/* Branch Filter */}
-              <motion.div className="bg-white/80 backdrop-blur-sm border border-purple-200/50 rounded-xl p-6 mb-4 shadow-lg shadow-purple-100/50"
+              {/* Filters */}
+              <motion.div className="bg-white/80 backdrop-blur-sm border border-purple-200/50 rounded-xl p-6 mb-4 shadow-lg shadow-purple-100/50 space-y-4 md:space-y-0 md:flex md:items-end md:justify-between md:gap-4"
                 initial={{opacity:0,scale:0.98}} animate={{opacity:1,scale:1}} transition={{delay:0.15}}>
-                <label className="font-semibold mb-2 block text-purple-700">Filter by Branch</label>
-                <select value={selectedBranchId||''} onChange={handleBranchChange}
-                  className="w-full sm:w-1/3 px-4 py-2 border border-purple-200/50 rounded-lg bg-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300/50 focus:border-purple-300/50 transition-all">
-                  <option value="">All Branches</option>
-                  {branches.map(b=>(
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
+                <div className="flex-1">
+                  <label className="font-semibold mb-2 block text-purple-700">Filter by Branch</label>
+                  <select value={selectedBranchId||''} onChange={handleBranchChange}
+                    className="w-full px-4 py-2 border border-purple-200/50 rounded-lg bg-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300/50 focus:border-purple-300/50 transition-all">
+                    <option value="">All Branches</option>
+                    {branches.map(b=>(
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="font-semibold mb-2 block text-purple-700">Filter by Month</label>
+                  <input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={handleMonthChange}
+                    className="w-full px-4 py-2 border border-purple-200/50 rounded-lg bg-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300/50 focus:border-purple-300/50 transition-all"
+                  />
+                </div>
+                <button
+                  onClick={handleExportCsv}
+                  disabled={isExporting}
+                  className="w-full md:w-auto inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-medium shadow hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-60"
+                >
+                  {isExporting ? 'Preparing...' : 'Export CSV'}
+                </button>
               </motion.div>
 
               {/* Add/Edit Form */}

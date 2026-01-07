@@ -395,6 +395,17 @@ const api = {
     }
   },
 
+  exportHostelCollectionsCsv: async (params: { month?: string; branchId?: number } = {}): Promise<Blob> => {
+    const queryParams: any = {};
+    if (params.month) queryParams.month = params.month;
+    if (params.branchId) queryParams.branchId = params.branchId;
+    const response = await apiClient.get('/hostel/collections/export/csv', {
+      params: queryParams,
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
   updateHostelCollectionPayment: async (historyId: number, paymentData: { paymentAmount: number; paymentType: 'cash' | 'online' }) => {
     try {
       const response = await apiClient.put(`/hostel/collections/${historyId}`, paymentData);
@@ -414,11 +425,22 @@ const api = {
   },
 
   // START: Added Hostel Expense Functions
-  getHostelExpenses: async (branchId?: number): Promise<{ expenses: Expense[] }> => {
-  // --- FIX END ---
+  getHostelExpenses: async (filters: { branchId?: number; month?: string } = {}): Promise<{ expenses: Expense[] }> => {
     const params: any = {};
-    if (branchId) params.branchId = branchId;
+    if (filters.branchId) params.branchId = filters.branchId;
+    if (filters.month) params.month = filters.month;
     const response = await apiClient.get('/hostel-expenses', { params });
+    return response.data;
+  },
+
+  exportHostelExpensesCsv: async (filters: { branchId?: number; month?: string } = {}): Promise<Blob> => {
+    const params: any = {};
+    if (filters.branchId) params.branchId = filters.branchId;
+    if (filters.month) params.month = filters.month;
+    const response = await apiClient.get('/hostel-expenses/export/csv', {
+      params,
+      responseType: 'blob'
+    });
     return response.data;
   },
 
