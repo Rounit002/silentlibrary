@@ -162,3 +162,7 @@
 {"level":"info","message":"Admin user(s) already exist, skipping default admin creation.","timestamp":"2026-01-07T17:12:09.747Z"}
 {"level":"info","message":"Server running on port 3000","timestamp":"2026-01-07T17:12:09.795Z"}
 {"level":"info","message":"Database connected successfully","timestamp":"2026-01-07T17:12:09.816Z"}
+{"level":"info","message":"Database connected successfully","timestamp":"2026-01-07T17:24:02.546Z"}
+{"level":"info","message":"Session table checked/initialized successfully","timestamp":"2026-01-07T17:24:02.670Z"}
+{"level":"info","message":"Admin user(s) already exist, skipping default admin creation.","timestamp":"2026-01-07T17:24:02.682Z"}
+{"level":"info","message":"Server running on port 3000","timestamp":"2026-01-07T17:24:02.781Z"}

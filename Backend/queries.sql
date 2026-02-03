@@ -1,8 +1,4 @@
-UPDATE hostel_expenses 
-SET date = REPLACE(date, '20258-', '2025-')
-WHERE date LIKE '20258-%';
-
-SELECT id, title, date, amount 
-FROM hostel_expenses 
-WHERE date LIKE '2025-%' 
-ORDER BY date DESC;
+UPDATE hostel_students
+SET created_at = TIMESTAMP '2026-01-22 05:30:00',
+    updated_at = NOW()
+WHERE LOWER(name) = LOWER('krishna murari');
