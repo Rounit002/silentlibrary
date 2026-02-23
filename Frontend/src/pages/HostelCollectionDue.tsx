@@ -78,9 +78,9 @@ const HostelCollectionDue: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const params: { month?: string; branch_id?: string } = {}; 
+      const params: { month?: string; branchId?: number } = {};
       if (month) params.month = month;
-      if (branch_id_filter && branch_id_filter !== "") params.branch_id = branch_id_filter;
+      if (branch_id_filter && branch_id_filter !== "") params.branchId = parseInt(branch_id_filter, 10);
 
       const responseData = await api.getHostelCollections(params); 
 

@@ -29,16 +29,19 @@ module.exports = (pool) => {
       let collectionsParams = [startDate, endDate];
       let expensesParams = [startDate, endDate];
       
-      // Collections Query (INACCURATE - see disclaimer)
-      // This query sums the TOTAL paid amount on records updated in the period,
-      // not the amount that was incrementally paid in the period.
+      // Collections Query
+      // Keep this consistent with the Hostel Collections & Due page:
+      // - Use created_at date range (same as /hostel/collections month filter)
+      // - Include security money as part of collections
       let collectionsQuery = `
         SELECT
-          COALESCE(SUM(hsh.cash_paid), 0) AS cash_collected,
-          COALESCE(SUM(hsh.online_paid), 0) AS online_collected
+          COALESCE(SUM(hsh.cash_paid), 0) AS cash_fee_collected,
+          COALESCE(SUM(hsh.online_paid), 0) AS online_fee_collected,
+          COALESCE(SUM(hsh.security_money_cash), 0) AS cash_security_collected,
+          COALESCE(SUM(hsh.security_money_online), 0) AS online_security_collected
         FROM hostel_student_history hsh
         LEFT JOIN hostel_students hs ON hsh.student_id = hs.id
-        WHERE hsh.updated_at::date >= $1 AND hsh.updated_at::date <= $2
+        WHERE hsh.created_at::date >= $1 AND hsh.created_at::date <= $2
       `;
 
       // Expenses Query (Accurate)
@@ -67,8 +70,13 @@ module.exports = (pool) => {
       const expensesResult = await pool.query(expensesQuery, expensesParams);
 
       // Parse results
-      const cashCollected = parseFloat(collectionsResult.rows[0].cash_collected) || 0;
-      const onlineCollected = parseFloat(collectionsResult.rows[0].online_collected) || 0;
+      const cashFeeCollected = parseFloat(collectionsResult.rows[0].cash_fee_collected) || 0;
+      const onlineFeeCollected = parseFloat(collectionsResult.rows[0].online_fee_collected) || 0;
+      const cashSecurityCollected = parseFloat(collectionsResult.rows[0].cash_security_collected) || 0;
+      const onlineSecurityCollected = parseFloat(collectionsResult.rows[0].online_security_collected) || 0;
+
+      const cashCollected = cashFeeCollected + cashSecurityCollected;
+      const onlineCollected = onlineFeeCollected + onlineSecurityCollected;
       const totalCollected = cashCollected + onlineCollected;
 
       const cashExpenses = parseFloat(expensesResult.rows[0].cash_expenses) || 0;
