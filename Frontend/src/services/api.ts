@@ -306,7 +306,7 @@ const api = {
     try {
       const params: any = {};
       if (branchId) {
-        params.branchId = branchId;
+        params.branch_id = branchId;
       }
       const response = await apiClient.get('/hostel/students', { params });
       return response.data.students;

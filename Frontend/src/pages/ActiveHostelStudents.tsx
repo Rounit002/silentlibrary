@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
 import api from '../services/api';
+import { MessageSquare } from 'lucide-react';
 
 interface ActiveStudent {
   id: string;
@@ -15,15 +16,24 @@ interface ActiveStudent {
 const ActiveHostelStudents: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeStudents, setActiveStudents] = useState<ActiveStudent[]>([]);
+  const [hostelBranches, setHostelBranches] = useState<Array<{ id: number; name: string }>>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<number | ''>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const buildWhatsAppUrl = (phone: string): string | null => {
+    const cleanedPhone = phone.replace(/\s+/g, '');
+    const digits = cleanedPhone.replace(/\D/g, '');
+    if (!digits) return null;
+    return `https://wa.me/${digits.startsWith('91') ? digits : '91' + digits}`;
+  };
 
   useEffect(() => {
     const fetchActiveStudents = async () => {
       setLoading(true);
       setError(null);
       try {
-        const allStudents = await api.getHostelStudents();
+        const allStudents = await api.getHostelStudents(typeof selectedBranchId === 'number' ? selectedBranchId : undefined);
         if (!Array.isArray(allStudents)) {
           throw new Error('Invalid data received from server');
         }
@@ -40,7 +50,7 @@ const ActiveHostelStudents: React.FC = () => {
           .map((student: any) => ({
             id: student.id,
             name: student.name,
-            phoneNumber: student.studentPhoneNumber || 'N/A',
+            phoneNumber: student.phoneNumber || student.studentPhoneNumber || 'N/A',
             branchName: student.branchName || 'N/A',
             stayEndDate: new Date(student.stayEndDate).toLocaleDateString(),
           }));
@@ -55,8 +65,23 @@ const ActiveHostelStudents: React.FC = () => {
         setLoading(false);
       }
     };
+
+    const fetchHostelBranches = async () => {
+      try {
+        const branches = await api.getHostelBranches();
+        if (Array.isArray(branches)) {
+          setHostelBranches(branches);
+        } else {
+          setHostelBranches([]);
+        }
+      } catch (err: any) {
+        console.error('Failed to fetch hostel branches:', err);
+      }
+    };
+
+    fetchHostelBranches();
     fetchActiveStudents();
-  }, []);
+  }, [selectedBranchId]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#fef9f6]">
@@ -81,6 +106,26 @@ const ActiveHostelStudents: React.FC = () => {
             >
               ✅ Active Hostel Students
             </motion.h1>
+            <div className="bg-white rounded-lg shadow-sm border p-3 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Branch</label>
+                <select
+                  value={selectedBranchId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedBranchId(val === '' ? '' : Number(val));
+                  }}
+                  className="w-full sm:w-64 p-2 border rounded-md bg-white"
+                >
+                  <option value="">All branches</option>
+                  {hostelBranches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -89,12 +134,13 @@ const ActiveHostelStudents: React.FC = () => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Membership End Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {activeStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-4 py-4 text-center text-gray-500">
+                      <td colSpan={5} className="px-4 py-4 text-center text-gray-500">
                         No active students found.
                       </td>
                     </tr>
@@ -110,6 +156,21 @@ const ActiveHostelStudents: React.FC = () => {
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{student.phoneNumber}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{student.branchName}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{student.stayEndDate}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">
+                          {student.phoneNumber && student.phoneNumber !== 'N/A' ? (
+                            <button
+                              onClick={() => {
+                                const waUrl = buildWhatsAppUrl(student.phoneNumber);
+                                if (!waUrl) return;
+                                window.open(waUrl, '_blank');
+                              }}
+                              className="inline-flex items-center justify-center p-2 rounded border hover:bg-gray-50"
+                              title="Chat on WhatsApp"
+                            >
+                              <MessageSquare size={16} />
+                            </button>
+                          ) : null}
+                        </td>
                       </motion.tr>
                     ))
                   )}

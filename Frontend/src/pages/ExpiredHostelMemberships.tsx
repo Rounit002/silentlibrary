@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
 import api from '../services/api';
+import { MessageSquare } from 'lucide-react';
 
 interface ExpiredStudent {
   id: string;
@@ -10,11 +11,14 @@ interface ExpiredStudent {
   phoneNumber: string;
   aadharNumber: string;
   latestStayEndDate: string;
+  branchName?: string;
 }
 
 const ExpiredHostelMemberships: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expiredStudents, setExpiredStudents] = useState<ExpiredStudent[]>([]);
+  const [hostelBranches, setHostelBranches] = useState<Array<{ id: number; name: string }>>([]);
+  const [selectedBranchName, setSelectedBranchName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
@@ -52,6 +56,23 @@ const ExpiredHostelMemberships: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const fetchHostelBranches = async () => {
+      try {
+        const branches = await api.getHostelBranches();
+        if (Array.isArray(branches)) {
+          setHostelBranches(branches);
+        } else {
+          setHostelBranches([]);
+        }
+      } catch (err: any) {
+        console.error('Failed to fetch hostel branches:', err);
+      }
+    };
+
+    fetchHostelBranches();
+  }, []);
+
+  useEffect(() => {
     const cash = parseFloat(cashPaid) || 0;
     const online = parseFloat(onlinePaid) || 0;
     const total = cash + online;
@@ -80,7 +101,7 @@ const ExpiredHostelMemberships: React.FC = () => {
       return;
     }
     try {
-      await api.renewHostelStudent(selectedStudent.id, {
+      await api.renewHostelStudent(Number(selectedStudent.id), {
         stay_start_date: stayStartDate,
         stay_end_date: stayEndDate,
         total_fee: parseFloat(totalFee),
@@ -102,6 +123,19 @@ const ExpiredHostelMemberships: React.FC = () => {
     } catch (err: any) {
       toast.error(err.message || 'Failed to renew student');
     }
+  };
+
+  const filteredExpiredStudents = expiredStudents.filter((s) => {
+    if (!selectedBranchName) return true;
+    return (s.branchName || '') === selectedBranchName;
+  });
+
+  const buildWhatsAppUrl = (phone: string | undefined | null): string | null => {
+    if (!phone) return null;
+    const cleanedPhone = phone.replace(/\s+/g, '');
+    const digits = cleanedPhone.replace(/\D/g, '');
+    if (!digits) return null;
+    return `https://wa.me/${digits.startsWith('91') ? digits : '91' + digits}`;
   };
 
   return (
@@ -127,6 +161,23 @@ const ExpiredHostelMemberships: React.FC = () => {
             >
               ⏰ Expired Hostel Memberships
             </motion.h1>
+            <div className="bg-white rounded-lg shadow-sm border p-3 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Branch</label>
+                <select
+                  value={selectedBranchName}
+                  onChange={(e) => setSelectedBranchName(e.target.value)}
+                  className="w-full sm:w-64 p-2 border rounded-md bg-white"
+                >
+                  <option value="">All branches</option>
+                  {hostelBranches.map((b) => (
+                    <option key={b.id} value={b.name}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -139,14 +190,14 @@ const ExpiredHostelMemberships: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {expiredStudents.length === 0 ? (
+                  {filteredExpiredStudents.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-4 text-center text-gray-500">
                         No expired memberships found
                       </td>
                     </tr>
                   ) : (
-                    expiredStudents.map((student) => (
+                    filteredExpiredStudents.map((student) => (
                       <motion.tr
                         key={student.id}
                         initial={{ opacity: 0 }}
@@ -158,6 +209,18 @@ const ExpiredHostelMemberships: React.FC = () => {
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{student.aadharNumber || 'N/A'}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{student.latestStayEndDate ? new Date(student.latestStayEndDate).toLocaleDateString() : 'N/A'}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm">
+                          {(() => {
+                            const waUrl = buildWhatsAppUrl(student.phoneNumber);
+                            return waUrl ? (
+                              <button
+                                onClick={() => window.open(waUrl, '_blank')}
+                                className="mr-3 inline-flex items-center justify-center p-2 rounded border hover:bg-gray-50"
+                                title="Chat on WhatsApp"
+                              >
+                                <MessageSquare size={16} />
+                              </button>
+                            ) : null;
+                          })()}
                           <button
                             onClick={() => handleRenew(student)}
                             className="text-purple-600 hover:text-purple-800 font-medium"
