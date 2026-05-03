@@ -36,12 +36,35 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
   const [cashPaid, setCashPaid] = useState(initialData?.cashPaid?.toString() || initialData?.cash_paid?.toString() || '');
   const [onlinePaid, setOnlinePaid] = useState(initialData?.onlinePaid?.toString() || initialData?.online_paid?.toString() || '');
   const [roomNumber, setRoomNumber] = useState(initialData?.roomNumber || initialData?.room_number || '');
+  const [roomId, setRoomId] = useState(initialData?.roomId || initialData?.room_id || '');
   const [remark, setRemark] = useState(initialData?.remark || '');
   const [dueAmount, setDueAmount] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [createdAt, setCreatedAt] = useState(initialData?.createdAt || initialData?.created_at || '');
+  const [rooms, setRooms] = useState<{ id: number; seatNumber: string; isAssigned: boolean; studentName?: string }[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      if (!branchId) {
+        setRooms([]);
+        return;
+      }
+      setLoadingRooms(true);
+      try {
+        const response = await api.getHostelSeats(branchId);
+        setRooms(response.seats || []);
+      } catch (error) {
+        console.error('Error fetching rooms:', error);
+        toast.error('Failed to fetch rooms');
+      } finally {
+        setLoadingRooms(false);
+      }
+    };
+    fetchRooms();
+  }, [branchId]);
 
   useEffect(() => {
     const feeValue = parseFloat(totalFee) || 0;
@@ -80,6 +103,7 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
         setCashPaid(initialData.cashPaid?.toString() || initialData.cash_paid?.toString() || '');
         setOnlinePaid(initialData.onlinePaid?.toString() || initialData.online_paid?.toString() || '');
         setRoomNumber(initialData.roomNumber || initialData.room_number || '');
+        setRoomId(initialData.roomId || initialData.room_id || '');
         setRemark(initialData.remark || '');
         setCreatedAt(initialData.createdAt || initialData.created_at || '');
     } else if (!initialData && branches && branches.length > 0 && !branchId) {
@@ -117,7 +141,7 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
     if (isNaN(totalFeeNum) || totalFeeNum < 0) {
       errors.push('Total Fee must be a non-negative number');
     }
-    if (!roomNumber.trim()) errors.push('Room Number is required');
+    if (!roomId) errors.push('Room selection is required');
     if (!religion.trim()) errors.push('Religion is required');
     if (!foodPreference) errors.push('Food Preference is required');
     if (!gender) errors.push('Gender is required');
@@ -171,7 +195,8 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
       total_fee: totalFeeNum,
       cash_paid: cashPaid ? parseFloat(cashPaid) : 0.0,
       online_paid: onlinePaid ? parseFloat(onlinePaid) : 0.0,
-      room_number: roomNumber.trim(),
+      room_number: roomNumber,
+      room_id: parseInt(roomId),
       remark: remark.trim() || null,
       created_at: createdAt || null,
     };
@@ -204,6 +229,7 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
         setCashPaid('');
         setOnlinePaid('');
         setRoomNumber('');
+        setRoomId('');
         setRemark('');
         setCreatedAt('');
       }
@@ -350,13 +376,31 @@ const HostelStudentForm: React.FC<HostelStudentFormProps> = ({ branches, onSubmi
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Room Number</label>
-          <input
-            type="text"
-            value={roomNumber}
-            onChange={(e) => setRoomNumber(e.target.value)}
+          <select
+            value={roomId}
+            onChange={(e) => {
+              const selectedRoomId = e.target.value;
+              setRoomId(selectedRoomId);
+              const selectedRoom = rooms.find(r => r.id.toString() === selectedRoomId);
+              if (selectedRoom) {
+                setRoomNumber(selectedRoom.seatNumber);
+              }
+            }}
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 transition-colors"
             required
-          />
+            disabled={loadingRooms}
+          >
+            <option value="">{loadingRooms ? 'Loading Rooms...' : 'Select Room'}</option>
+            {rooms.map((room) => (
+              <option 
+                key={room.id} 
+                value={room.id}
+                disabled={room.isAssigned && room.id !== (initialData?.roomId || initialData?.room_id)}
+              >
+                {room.seatNumber} {room.isAssigned ? `(Assigned to ${room.studentName})` : '(Available)'}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Security Money (Cash)</label>

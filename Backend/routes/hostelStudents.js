@@ -29,6 +29,7 @@ module.exports = (pool) => {
       securityMoneyOnline: parseFloat(String(row.security_money_online || 0)),
       registrationNumber: row.registration_number,
       roomNumber: row.room_number,
+      roomId: row.room_id,
       remark: row.remark,
       studentCreatedAt: row.student_created_at || row.created_at,
       studentUpdatedAt: row.student_updated_at || row.updated_at,
@@ -51,6 +52,7 @@ module.exports = (pool) => {
       securityMoneyCash: parseFloat(String(row.security_money_cash || 0)),
       securityMoneyOnline: parseFloat(String(row.security_money_online || 0)),
       roomNumber: row.room_number,
+      roomId: row.room_id,
       remark: row.remark,
       createdAt: row.created_at,
     };
@@ -186,7 +188,7 @@ module.exports = (pool) => {
       profile_image_url, aadhar_image_url, religion, food_preference, gender,
       security_money_cash, security_money_online,
       registration_number, stay_start_date, stay_end_date, total_fee, cash_paid,
-      online_paid, room_number, remark, created_at,
+      online_paid, room_number, room_id, remark, created_at,
     } = req.body;
 
     // Validations
@@ -199,7 +201,7 @@ module.exports = (pool) => {
     if (total_fee === undefined || total_fee === null) return res.status(400).json({ message: 'Total fee is required.' });
     const totalFeeNum = parseFloat(total_fee);
     if (isNaN(totalFeeNum) || totalFeeNum < 0) return res.status(400).json({ message: 'Total fee must be a non-negative number.' });
-    if (!room_number || !String(room_number).trim()) return res.status(400).json({ message: 'Room number is required.' });
+    if (!room_id) return res.status(400).json({ message: 'Room selection is required.' });
     if (!religion || !String(religion).trim()) return res.status(400).json({ message: 'Religion is required.' });
     if (!food_preference) return res.status(400).json({ message: 'Food preference is required.' });
     if (!gender) return res.status(400).json({ message: 'Gender is required.' });
@@ -233,14 +235,14 @@ module.exports = (pool) => {
           branch_id, name, address, father_name, mother_name, aadhar_number, phone_number,
           profile_image_url, aadhar_image_url, religion, food_preference, gender, 
           security_money, security_money_cash, security_money_online, 
-          registration_number, room_number, remark, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, CURRENT_TIMESTAMP) 
+          registration_number, room_number, room_id, remark, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, CURRENT_TIMESTAMP) 
         RETURNING *`;
       const studentInsertParams = [
         parsedBranchId, name.trim(), address || null, father_name || null, mother_name || null,
         aadhar_number || null, phone_number || null, profile_image_url || null, aadhar_image_url || null,
         String(religion).trim(), food_preference, gender, totalSecurityMoney, parsedSecurityCash, parsedSecurityOnline,
-        registration_number || null, String(room_number).trim(), remark || null, created_at || null
+        registration_number || null, String(room_number).trim(), room_id, remark || null, created_at || null
       ];
       const studentResult = await pool.query(studentInsertQuery, studentInsertParams);
       const newStudent = studentResult.rows[0];
@@ -251,12 +253,12 @@ module.exports = (pool) => {
       const historyInsertQuery = `
         INSERT INTO hostel_student_history (
           student_id, stay_start_date, stay_end_date, total_fee, cash_paid, online_paid, due_amount, 
-          security_money_cash, security_money_online, room_number, remark, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP) 
+          security_money_cash, security_money_online, room_number, room_id, remark, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP) 
         RETURNING *`;
       const historyInsertParams = [
         newStudent.id, stay_start_date, stay_end_date, totalFeeNum, cashPaidNum, onlinePaidNum,
-        dueAmount, parsedSecurityCash, parsedSecurityOnline, String(room_number).trim(), remark || null
+        dueAmount, parsedSecurityCash, parsedSecurityOnline, String(room_number).trim(), room_id, remark || null
       ];
       const historyResult = await pool.query(historyInsertQuery, historyInsertParams);
       const newHistory = historyResult.rows[0];
@@ -291,7 +293,7 @@ module.exports = (pool) => {
       branch_id, name, address, father_name, mother_name, aadhar_number, phone_number,
       profile_image_url, aadhar_image_url, religion, food_preference, gender,
       security_money, security_money_cash, security_money_online,
-      registration_number, room_number, remark,
+      registration_number, room_number, room_id, remark,
       // Optional history-related fields (if provided on edit)
       stay_start_date, stay_end_date, total_fee, cash_paid, online_paid,
     } = req.body;
@@ -360,6 +362,7 @@ module.exports = (pool) => {
         security_money_online: parsedSecurityOnline,
         registration_number: registration_number !== undefined ? (registration_number?.trim() || null) : undefined,
         room_number: room_number !== undefined ? (room_number?.trim() || null) : undefined,
+        room_id: room_id !== undefined ? room_id : undefined,
         remark: remark !== undefined ? (remark?.trim() || null) : undefined,
       };
 
@@ -433,6 +436,11 @@ module.exports = (pool) => {
           historyValuesToUpdate.push(String(room_number).trim());
           shouldUpdateHistory = true;
         }
+        if (room_id !== undefined) {
+          historyFieldsToUpdate.push(`room_id = $${historyParamCount++}`);
+          historyValuesToUpdate.push(room_id);
+          shouldUpdateHistory = true;
+        }
         if (remark !== undefined) {
           historyFieldsToUpdate.push(`remark = $${historyParamCount++}`);
           historyValuesToUpdate.push(remark?.trim() || null);
@@ -495,8 +503,8 @@ module.exports = (pool) => {
           const createHistoryQuery = `
             INSERT INTO hostel_student_history (
               student_id, stay_start_date, stay_end_date, total_fee, cash_paid, online_paid, due_amount,
-              security_money_cash, security_money_online, room_number, remark, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+              security_money_cash, security_money_online, room_number, room_id, remark, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
             RETURNING *`;
           const createParams = [
             studentId,
@@ -509,6 +517,7 @@ module.exports = (pool) => {
             parsedSecurityCash || 0.0,
             parsedSecurityOnline || 0.0,
             room_number ? String(room_number).trim() : null,
+            room_id || null,
             remark || null
           ];
           await pool.query(createHistoryQuery, createParams);
@@ -549,11 +558,11 @@ module.exports = (pool) => {
 
     const {
       stay_start_date, stay_end_date, total_fee, cash_paid, online_paid,
-      room_number, remark, created_at,
+      room_number, room_id, remark, created_at,
     } = req.body;
 
-    if (!stay_start_date || !stay_end_date || total_fee === undefined || room_number === undefined || String(room_number).trim() === '') {
-      return res.status(400).json({ message: 'Missing required fields for renewal: stay dates, total fee, and room number are required.' });
+    if (!stay_start_date || !stay_end_date || total_fee === undefined || !room_id) {
+      return res.status(400).json({ message: 'Missing required fields for renewal: stay dates, total fee, and room selection are required.' });
     }
     const totalFeeNum = parseFloat(total_fee);
     if (isNaN(totalFeeNum) || totalFeeNum < 0) return res.status(400).json({ message: 'Total fee must be a non-negative number.' });
@@ -563,15 +572,15 @@ module.exports = (pool) => {
     try {
       await pool.query('BEGIN');
 
-      const studentRes = await pool.query('SELECT id, room_number FROM hostel_students WHERE id = $1', [studentId]);
+      const studentRes = await pool.query('SELECT id, room_number, room_id FROM hostel_students WHERE id = $1', [studentId]);
       if (studentRes.rows.length === 0) {
         await pool.query('ROLLBACK');
         return res.status(404).json({ message: 'Student not found for renewal.' });
       }
 
-      if (studentRes.rows[0].room_number !== String(room_number).trim()) {
-        await pool.query('UPDATE hostel_students SET room_number = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-          [String(room_number).trim(), studentId]);
+      if (studentRes.rows[0].room_id !== room_id) {
+        await pool.query('UPDATE hostel_students SET room_id = $1, room_number = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+          [room_id, String(room_number).trim(), studentId]);
       }
 
       const totalPaid = cashPaidNum + onlinePaidNum;
@@ -580,8 +589,8 @@ module.exports = (pool) => {
       const historyInsertQuery = `
             INSERT INTO hostel_student_history (
                 student_id, stay_start_date, stay_end_date, total_fee, cash_paid, online_paid, due_amount, 
-                security_money_cash, security_money_online, room_number, remark, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+                security_money_cash, security_money_online, room_number, room_id, remark, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
             RETURNING *`;
       const historyInsertParams = [
         studentId,
@@ -594,6 +603,7 @@ module.exports = (pool) => {
         0.0,
         0.0,
         String(room_number).trim(),
+        room_id,
         remark || null,
         created_at || null
       ];

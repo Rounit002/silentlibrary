@@ -33,6 +33,7 @@ import ExpiredHostelMemberships from './pages/ExpiredHostelMemberships';
 import ManageBranches from './pages/ManageBranches'; 
 import ProductsPage from './pages/ProductsPage'; 
 import HostelDashboard from './pages/HostelDashboard';
+import HostelRoomsPage from './pages/HostelRoomsPage';
 import ActiveHostelStudents from './pages/ActiveHostelStudents';
 import InactiveStudents from './pages/InactiveStudents';
 import HostelExpenses from './pages/HostelExpenses'; // <-- IMPORT NEW COMPONENT
@@ -56,6 +57,7 @@ function AppRoutes() {
       
       {/* Hostel Routes */}
       <Route path="/hostel-dashboard" element={<ProtectedRoute><HostelDashboard /></ProtectedRoute>} />
+      <Route path="/hostel/rooms" element={<ProtectedRoute><HostelRoomsPage /></ProtectedRoute>} />
       <Route path="/hostel/active-students" element={<ProtectedRoute><ActiveHostelStudents /></ProtectedRoute>} />
       <Route path="/hostel" element={<ProtectedRoute><HostelPage /></ProtectedRoute>} />
       <Route path="/hostel/branches/:branchId/students" element={<ProtectedRoute><BranchStudentsPage /></ProtectedRoute>} />

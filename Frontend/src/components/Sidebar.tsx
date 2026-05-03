@@ -195,6 +195,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
                     </Link>
 
                     <Link
+                      to="/hostel/rooms"
+                      className={`block py-2 px-3 rounded-md text-sm font-medium ${
+                        isActive('/hostel/rooms') ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      Room Management
+                    </Link>
+
+                    <Link
                       to="/hostel/expired"
                       className={`block py-2 px-3 rounded-md text-sm font-medium ${
                         isActive('/hostel/expired') ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-100'

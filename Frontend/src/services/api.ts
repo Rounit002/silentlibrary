@@ -302,6 +302,40 @@ const api = {
     }
   },
 
+  getHostelSeats: async (branchId?: string | number) => {
+    try {
+      const params: any = {};
+      if (branchId) {
+        params.branch_id = branchId;
+      }
+      const response = await apiClient.get('/hostel/seats', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching hostel seats:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  addHostelSeats: async (data: { seat_numbers: string; branch_id: string | number }) => {
+    try {
+      const response = await apiClient.post('/hostel/seats', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error adding hostel seats:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  deleteHostelSeat: async (id: number) => {
+    try {
+      const response = await apiClient.delete(`/hostel/seats/${id}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error deleting hostel seat:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
   getHostelStudents: async (branchId?: number) => {
     try {
       const params: any = {};
