@@ -29,6 +29,9 @@ const ExpiredHostelMemberships: React.FC = () => {
   const [cashPaid, setCashPaid] = useState('');
   const [onlinePaid, setOnlinePaid] = useState('');
   const [roomNumber, setRoomNumber] = useState('');
+  const [roomId, setRoomId] = useState('');
+  const [rooms, setRooms] = useState<{ id: number; seatNumber: string; isAssigned: boolean; studentName?: string }[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
   const [remark, setRemark] = useState('');
   const [totalPaid, setTotalPaid] = useState(0);
   const [dueAmount, setDueAmount] = useState(0);
@@ -82,7 +85,7 @@ const ExpiredHostelMemberships: React.FC = () => {
     setDueAmount(due >= 0 ? due : 0);
   }, [cashPaid, onlinePaid, totalFee]);
 
-  const handleRenew = (student: ExpiredStudent) => {
+  const handleRenew = async (student: ExpiredStudent) => {
     setSelectedStudent(student);
     setStayStartDate('');
     setStayEndDate('');
@@ -90,13 +93,26 @@ const ExpiredHostelMemberships: React.FC = () => {
     setCashPaid('');
     setOnlinePaid('');
     setRoomNumber('');
+    setRoomId('');
     setRemark('');
     setCreatedAt('');
     setIsRenewModalOpen(true);
+    
+    // Fetch rooms for the student's branch
+    setLoadingRooms(true);
+    try {
+      const response = await api.getHostelSeats();
+      setRooms(response.seats || []);
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
+      toast.error('Failed to fetch rooms');
+    } finally {
+      setLoadingRooms(false);
+    }
   };
 
   const handleRenewSubmit = async () => {
-    if (!selectedStudent || !stayStartDate || !stayEndDate || !totalFee) {
+    if (!selectedStudent || !stayStartDate || !stayEndDate || !totalFee || !roomId) {
       toast.error('Required fields are missing');
       return;
     }
@@ -108,6 +124,7 @@ const ExpiredHostelMemberships: React.FC = () => {
         cash_paid: parseFloat(cashPaid) || 0,
         online_paid: parseFloat(onlinePaid) || 0,
         room_number: roomNumber,
+        room_id: parseInt(roomId),
         remark,
         created_at: createdAt || null,
       });
@@ -236,10 +253,10 @@ const ExpiredHostelMemberships: React.FC = () => {
             </div>
 
             {isRenewModalOpen && selectedStudent && (
-              <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+              <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 p-4 z-50">
+                <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full max-h-[90vh] flex flex-col">
                   <h3 className="text-lg font-semibold mb-4">Renew Membership for {selectedStudent.name}</h3>
-                  <div className="space-y-4">
+                  <div className="space-y-4 overflow-y-auto flex-1 pr-2">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
                       <input
@@ -320,12 +337,31 @@ const ExpiredHostelMemberships: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Room Number</label>
-                      <input
-                        type="text"
-                        value={roomNumber}
-                        onChange={(e) => setRoomNumber(e.target.value)}
+                      <select
+                        value={roomId}
+                        onChange={(e) => {
+                          const selectedRoomId = e.target.value;
+                          setRoomId(selectedRoomId);
+                          const selectedRoom = rooms.find(r => r.id.toString() === selectedRoomId);
+                          if (selectedRoom) {
+                            setRoomNumber(selectedRoom.seatNumber);
+                          }
+                        }}
                         className="w-full p-2 border rounded-md"
-                      />
+                        required
+                        disabled={loadingRooms}
+                      >
+                        <option value="">{loadingRooms ? 'Loading Rooms...' : 'Select Room'}</option>
+                        {rooms.map((room) => (
+                          <option 
+                            key={room.id} 
+                            value={room.id}
+                            disabled={room.isAssigned}
+                          >
+                            {room.seatNumber} {room.isAssigned ? `(Assigned to ${room.studentName})` : '(Available)'}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Remark</label>
@@ -337,7 +373,7 @@ const ExpiredHostelMemberships: React.FC = () => {
                       />
                     </div>
                   </div>
-                  <div className="flex justify-end space-x-2 mt-4">
+                  <div className="flex justify-end space-x-2 mt-4 pt-4 border-t">
                     <button
                       onClick={() => setIsRenewModalOpen(false)}
                       className="px-4 py-2 border rounded-md text-gray-600 hover:bg-gray-100"

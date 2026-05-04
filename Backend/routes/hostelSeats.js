@@ -27,7 +27,7 @@ module.exports = (pool) => {
         queryText += ` AND hs.branch_id = $${params.length}`;
       }
 
-      queryText += ' ORDER BY CAST(hs.seat_number AS INTEGER) NULLS LAST, hs.seat_number ASC';
+      queryText += ' ORDER BY hs.seat_number ASC';
 
       const result = await pool.query(queryText, params);
       const seats = result.rows.map((row) => ({
