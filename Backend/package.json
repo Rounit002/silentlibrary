@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "build": "npm install && cd ../Frontend && npm install && npm run build && cd ../Backend && rimraf dist && npx cpr ../Frontend/dist dist",
-    "start": "node run-queries.js && node server.js"
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
