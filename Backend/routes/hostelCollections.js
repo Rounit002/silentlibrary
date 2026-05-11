@@ -201,29 +201,103 @@ module.exports = (pool) => {
       }
       
       const history = historyRes.rows[0];
-      const currentTotalFee = parseFloat(history.total_fee);
-      let currentCashPaid = parseFloat(history.cash_paid);
-      let currentOnlinePaid = parseFloat(history.online_paid);
-      const currentDueAmount = parseFloat(history.due_amount);
+      const studentId = history.student_id;
 
-      if (payment_amount > currentDueAmount + 0.001) { 
+      // Get student details
+      const studentRes = await pool.query('SELECT * FROM hostel_students WHERE id = $1', [studentId]);
+      if (studentRes.rows.length === 0) {
         await pool.query('ROLLBACK');
-        return res.status(400).json({ message: `Payment amount (₹${payment_amount.toFixed(2)}) exceeds current due amount (₹${currentDueAmount.toFixed(2)}).` });
+        return res.status(404).json({ message: 'Student not found.' });
+      }
+      const student = studentRes.rows[0];
+
+      // Calculate total due across all months for this student
+      const allHistoryRes = await pool.query(
+        'SELECT id, due_amount FROM hostel_student_history WHERE student_id = $1 AND due_amount > 0 ORDER BY id',
+        [studentId]
+      );
+
+      let totalDueAmount = 0;
+      allHistoryRes.rows.forEach(row => {
+        totalDueAmount += parseFloat(row.due_amount);
+      });
+
+      if (payment_amount > totalDueAmount + 0.001) { 
+        await pool.query('ROLLBACK');
+        return res.status(400).json({ message: `Payment amount (₹${payment_amount.toFixed(2)}) exceeds total due amount across all months (₹${totalDueAmount.toFixed(2)}).` });
       }
 
+      // Get or create current month's history record
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
+      const currentMonthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+
+      // Check if there's already a history record for current month
+      const currentMonthHistoryRes = await pool.query(
+        `SELECT * FROM hostel_student_history 
+         WHERE student_id = $1 
+         AND TO_CHAR(created_at, 'YYYY-MM') = $2 
+         ORDER BY id DESC LIMIT 1`,
+        [studentId, currentMonthStr]
+      );
+
+      let currentMonthHistory;
+      if (currentMonthHistoryRes.rows.length > 0) {
+        currentMonthHistory = currentMonthHistoryRes.rows[0];
+      } else {
+        // Create a new history record for current month
+        const newHistoryRes = await pool.query(
+          `INSERT INTO hostel_student_history 
+           (student_id, stay_start_date, stay_end_date, total_fee, cash_paid, online_paid, due_amount, 
+            security_money_cash, security_money_online, room_number, room_id, remark, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
+           RETURNING *`,
+          [
+            studentId,
+            history.stay_start_date,
+            history.stay_end_date,
+            0, // total_fee - will be 0 since this is just for payment collection
+            0, // cash_paid
+            0, // online_paid
+            0, // due_amount
+            0, // security_money_cash
+            0, // security_money_online
+            history.room_number,
+            history.room_id,
+            `Payment collection from ${currentMonthStr}`
+          ]
+        );
+        currentMonthHistory = newHistoryRes.rows[0];
+      }
+
+      // Apply payment to current month's history record
+      let currentCashPaid = parseFloat(currentMonthHistory.cash_paid);
+      let currentOnlinePaid = parseFloat(currentMonthHistory.online_paid);
+      
       if (payment_type === 'cash') {
         currentCashPaid += payment_amount;
       } else { 
         currentOnlinePaid += payment_amount;
       }
-      
+
       const newTotalPaid = currentCashPaid + currentOnlinePaid;
+      const currentTotalFee = parseFloat(currentMonthHistory.total_fee);
       const newDueAmount = currentTotalFee - newTotalPaid;
 
+      // Update the current month's history record
       const updateResult = await pool.query(
         'UPDATE hostel_student_history SET cash_paid = $1, online_paid = $2, due_amount = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
-        [currentCashPaid.toFixed(2), currentOnlinePaid.toFixed(2), newDueAmount.toFixed(2), parsedHistoryId]
+        [currentCashPaid.toFixed(2), currentOnlinePaid.toFixed(2), newDueAmount.toFixed(2), currentMonthHistory.id]
       );
+
+      // Mark all other history records as fully paid (set due_amount to 0)
+      const otherHistoryIds = allHistoryRes.rows.map(row => row.id);
+      await pool.query(
+        'UPDATE hostel_student_history SET due_amount = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ANY($1)',
+        [otherHistoryIds]
+      );
+
       await pool.query('COMMIT');
       
       res.json({ message: 'Payment updated successfully', updatedHistory: updateResult.rows[0] });

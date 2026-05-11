@@ -173,9 +173,20 @@ const HostelCollectionDue: React.FC = () => {
   const totalCollected = totalCash + totalOnline + totalSecurityMoney;
   const totalDue = filteredCollections.reduce((sum, c) => sum + c.dueAmount, 0);
   
-  const handlePayDue = (collection: Collection) => {
+  const handlePayDue = async (collection: Collection) => {
     setSelectedCollection(collection);
-    setPaymentAmount(collection.dueAmount > 0 ? collection.dueAmount.toFixed(2) : ''); 
+    
+    // Fetch total due across all months for this student
+    try {
+      const allCollections = await api.getHostelCollections({});
+      const studentCollections = allCollections.collections.filter((c: any) => c.studentId === collection.studentId);
+      const totalDue = studentCollections.reduce((sum: number, c: any) => sum + (parseFloat(c.dueAmount) || 0), 0);
+      setPaymentAmount(totalDue > 0 ? totalDue.toFixed(2) : '');
+    } catch (error) {
+      console.error('Error fetching total due:', error);
+      setPaymentAmount(collection.dueAmount > 0 ? collection.dueAmount.toFixed(2) : '');
+    }
+    
     setPaymentType('cash');
     setIsPayModalOpen(true);
   };
@@ -190,17 +201,15 @@ const HostelCollectionDue: React.FC = () => {
       toast.error('Payment amount must be a positive number.');
       return;
     }
-    if (payment > selectedCollection.dueAmount + 0.001) {
-      toast.error(`Payment amount (₹${payment.toFixed(2)}) cannot exceed the due amount (₹${selectedCollection.dueAmount.toFixed(2)}).`);
-      return;
-    }
+    // Removed the check that limits payment to current record's due amount
+    // Backend now validates against total due across all months
     setPaymentLoading(true);
     try {
       await api.updateHostelCollectionPayment(selectedCollection.historyId, {
         paymentAmount: payment,
         paymentType,
       });
-      toast.success('Payment updated successfully!');
+      toast.success('Payment added to current month successfully! Previous months marked as paid.');
       setIsPayModalOpen(false);
       setSelectedCollection(null);
       await fetchCollectionsData(selectedMonth, selectedBranchId);
@@ -409,11 +418,12 @@ const HostelCollectionDue: React.FC = () => {
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm">
                 <motion.div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full m-4" initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}>
                   <h3 className="text-lg font-semibold mb-1 text-gray-800">Pay Due for {selectedCollection.studentName || 'N/A'}</h3>
-                  <p className="text-xs text-gray-500 mb-4">Room: {selectedCollection.studentCurrentRoomNumber || 'N/A'} | Branch: {selectedCollection.branchName || 'N/A'}</p>
-                  <p className="text-sm text-gray-600 mb-2">Current Due: <span className="font-bold text-red-600">₹{selectedCollection.dueAmount.toFixed(2)}</span></p>
+                  <p className="text-xs text-gray-500 mb-2">Room: {selectedCollection.studentCurrentRoomNumber || 'N/A'} | Branch: {selectedCollection.branchName || 'N/A'}</p>
+                  <p className="text-sm text-gray-600 mb-1">Current Month Due: <span className="font-bold text-red-600">₹{selectedCollection.dueAmount.toFixed(2)}</span></p>
+                  <p className="text-xs text-blue-600 mb-4">Payment will be added to current month's collection</p>
                   <div className="mb-4">
                     <label htmlFor="paymentAmount" className="block text-sm font-medium text-gray-700 mb-1">Payment Amount</label>
-                    <input id="paymentAmount" type="number" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder="Enter payment amount" className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400" step="0.01" min="0.01" max={selectedCollection.dueAmount.toString()} required/>
+                    <input id="paymentAmount" type="number" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder="Enter payment amount" className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400" step="0.01" min="0.01" required/>
                   </div>
                    <div className="mb-6">
                     <label htmlFor="paymentType" className="block text-sm font-medium text-gray-700 mb-1">Payment Type</label>
