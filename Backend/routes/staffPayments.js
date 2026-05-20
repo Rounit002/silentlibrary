@@ -367,7 +367,7 @@ module.exports = (pool) => {
 
       // Get old staff payment data to find associated expense
       const oldPaymentResult = await client.query(
-        'SELECT staff_id, date, created_at FROM staff_payments WHERE id = $1',
+        'SELECT staff_id, date, cash, online, amount, branch_id FROM staff_payments WHERE id = $1',
         [parseInt(id, 10)]
       );
 
@@ -419,8 +419,7 @@ module.exports = (pool) => {
         return res.status(404).json({ message: 'Staff payment not found' });
       }
 
-      // Find and update the corresponding expense
-      // We match by title (staff name), date, and created_at timestamp to find the original expense
+      // Find and update the corresponding expense by matching old values
       const oldStaffNameResult = await client.query('SELECT name FROM staff WHERE id = $1', [oldPayment.staff_id]);
       const oldStaffName = oldStaffNameResult.rows[0]?.name;
 
@@ -436,9 +435,10 @@ module.exports = (pool) => {
           branch_id = $7
         WHERE title = $8
           AND date = $9
-          AND created_at = (
-            SELECT created_at FROM staff_payments WHERE id = $10
-          )
+          AND cash = $10
+          AND online = $11
+          AND amount = $12
+          AND (branch_id = $13 OR (branch_id IS NULL AND $13 IS NULL))
       `;
       await client.query(updateExpenseSql, [
         staffName,
@@ -450,7 +450,10 @@ module.exports = (pool) => {
         branch_id,
         oldStaffName,
         oldPayment.date,
-        parseInt(id, 10),
+        oldPayment.cash,
+        oldPayment.online,
+        oldPayment.amount,
+        oldPayment.branch_id,
       ]);
 
       await client.query('COMMIT');
@@ -479,7 +482,7 @@ module.exports = (pool) => {
 
       // Get staff payment data before deletion
       const paymentResult = await client.query(
-        'SELECT sp.staff_id, sp.date, sp.created_at, s.name as staff_name FROM staff_payments sp LEFT JOIN staff s ON sp.staff_id = s.id WHERE sp.id = $1',
+        'SELECT sp.staff_id, sp.date, sp.cash, sp.online, sp.amount, sp.remark, sp.branch_id, s.name as staff_name FROM staff_payments sp LEFT JOIN staff s ON sp.staff_id = s.id WHERE sp.id = $1',
         [parseInt(id, 10)]
       );
 
@@ -496,10 +499,10 @@ module.exports = (pool) => {
         [parseInt(id, 10)]
       );
 
-      // Delete corresponding expense
+      // Delete corresponding expense by matching title, date, amount, and branch
       await client.query(
-        'DELETE FROM expenses WHERE title = $1 AND date = $2 AND created_at = $3',
-        [payment.staff_name, payment.date, payment.created_at]
+        'DELETE FROM expenses WHERE title = $1 AND date = $2 AND cash = $3 AND online = $4 AND amount = $5 AND (branch_id = $6 OR (branch_id IS NULL AND $6 IS NULL))',
+        [payment.staff_name, payment.date, payment.cash, payment.online, payment.amount, payment.branch_id]
       );
 
       await client.query('COMMIT');
