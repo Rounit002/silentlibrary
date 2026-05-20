@@ -221,6 +221,7 @@ const branchesRoutes = initializeRoute('./routes/branches', pool);
 const hostelReportsRoutes = require('./routes/hostelReports')(pool);
 const productsRoutes = initializeRoute('./routes/products', pool);
 const advancePaymentsRoutes = initializeRoute('./routes/advancePayments', pool);
+const staffPaymentsRoutes = initializeRoute('./routes/staffPayments', pool);
 
 app.use('/api/auth', authRoutes);
 // FIX: Removed 'checkAdmin' middleware to allow authenticated users to access their own profile.
@@ -243,6 +244,7 @@ app.use('/api/expenses', authenticateUser, checkAdminOrStaff, expensesRoutes);
 app.use('/api/reports', authenticateUser, checkAdminOrStaff, reportsRoutes);
 app.use('/api/products', authenticateUser, checkAdmin, productsRoutes);
 app.use('/api/advance-payments', authenticateUser, checkAdminOrStaff, advancePaymentsRoutes);
+app.use('/api/staff-payments', authenticateUser, checkAdminOrStaff, staffPaymentsRoutes);
 
 app.get('/api/test-email', async (req, res) => {
   try {

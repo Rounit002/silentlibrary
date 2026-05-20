@@ -29,6 +29,28 @@ interface Expense {
   branchName?: string | null;
 }
 
+interface Staff {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface StaffPayment {
+  id: number;
+  staffId: number;
+  staffName: string;
+  cash: number;
+  online: number;
+  amount: number;
+  date: string;
+  remark: string | null;
+  branchId?: number | null;
+  branchName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface Student {
   id: number;
   name: string;
@@ -998,6 +1020,78 @@ const api = {
 
   getNextRegistrationNumber: async (): Promise<{ nextRegistrationNumber: string }> => {
     const response = await apiClient.get('/students/next-registration-number');
+    return response.data;
+  },
+
+  // Staff Management
+  getStaff: async (): Promise<{ staff: Staff[] }> => {
+    const response = await apiClient.get('/staff-payments/staff');
+    return response.data;
+  },
+
+  addStaff: async (staffData: { name: string }): Promise<{ staff: Staff }> => {
+    const response = await apiClient.post('/staff-payments/staff', staffData);
+    return response.data;
+  },
+
+  updateStaff: async (id: number, staffData: { name: string }): Promise<{ staff: Staff }> => {
+    const response = await apiClient.put(`/staff-payments/staff/${id}`, staffData);
+    return response.data;
+  },
+
+  deleteStaff: async (id: number): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/staff-payments/staff/${id}`);
+    return response.data;
+  },
+
+  // Staff Payments
+  getStaffPayments: async (params: { branchId?: number; month?: string; staffId?: number } = {}): Promise<{ payments: StaffPayment[]; staff: Staff[] }> => {
+    const response = await apiClient.get('/staff-payments', { params });
+    return response.data;
+  },
+
+  getStaffPaymentsByStaffId: async (staffId: number, params: { branchId?: number; month?: string } = {}): Promise<{ payments: StaffPayment[] }> => {
+    const response = await apiClient.get(`/staff-payments/staff/${staffId}`, { params });
+    return response.data;
+  },
+
+  addStaffPayment: async (paymentData: {
+    staffId: number;
+    cash: string | number;
+    online: string | number;
+    date: string;
+    remark: string;
+    branchId?: number | null;
+  }): Promise<StaffPayment> => {
+    const response = await apiClient.post('/staff-payments', paymentData);
+    return response.data;
+  },
+
+  updateStaffPayment: async (
+    id: number,
+    paymentData: {
+      staffId: number;
+      cash: string | number;
+      online: string | number;
+      date: string;
+      remark: string;
+      branchId?: number | null;
+    }
+  ): Promise<StaffPayment> => {
+    const response = await apiClient.put(`/staff-payments/${id}`, paymentData);
+    return response.data;
+  },
+
+  deleteStaffPayment: async (id: number): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/staff-payments/${id}`);
+    return response.data;
+  },
+
+  exportStaffPaymentsCsv: async (params: { branchId?: number; month?: string; staffId?: number } = {}): Promise<Blob> => {
+    const response = await apiClient.get('/staff-payments/export/csv', {
+      params,
+      responseType: 'blob'
+    });
     return response.data;
   },
 };

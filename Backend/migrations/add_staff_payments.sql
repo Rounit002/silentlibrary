@@ -23,6 +23,11 @@ CREATE TABLE IF NOT EXISTS staff_payments (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create indexes for staff_payments
+CREATE INDEX IF NOT EXISTS idx_staff_payments_staff_id ON staff_payments(staff_id);
+CREATE INDEX IF NOT EXISTS idx_staff_payments_date ON staff_payments(date);
+CREATE INDEX IF NOT EXISTS idx_staff_payments_branch_id ON staff_payments(branch_id);
+
 -- Add trigger to update updated_at timestamp for staff
 CREATE OR REPLACE FUNCTION update_staff_updated_at()
 RETURNS TRIGGER AS $$
