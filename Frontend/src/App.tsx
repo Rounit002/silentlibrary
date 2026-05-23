@@ -40,6 +40,7 @@ import HostelExpenses from './pages/HostelExpenses'; // <-- IMPORT NEW COMPONENT
 import HostelProfitLoss from './pages/HostelProfitLoss';
 import AdvancePayments from './pages/AdvancePayments';
 import StaffPayments from './pages/StaffPayments';
+import HostelStaffPayments from './pages/HostelStaffPayments';
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,7 @@ function AppRoutes() {
       <Route path="/hostel/collections" element={<ProtectedRoute><HostelCollectionDue /></ProtectedRoute>} />
       <Route path="/hostel/expired" element={<ProtectedRoute><ExpiredHostelMemberships /></ProtectedRoute>} />
       <Route path="/hostel/expenses" element={<ProtectedRoute><HostelExpenses /></ProtectedRoute>} /> {/* <-- ADD NEW ROUTE */}
+      <Route path="/hostel/staff-payments" element={<ProtectedRoute><HostelStaffPayments /></ProtectedRoute>} />
       <Route path="/hostel/profit-loss" element={<ProtectedRoute><HostelProfitLoss /></ProtectedRoute>} />
 
 

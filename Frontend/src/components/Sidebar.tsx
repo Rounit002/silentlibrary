@@ -187,6 +187,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
                     {/* END: Added Hostel Expenses Link */}
 
                     <Link
+                      to="/hostel/staff-payments"
+                      className={`block py-2 px-3 rounded-md text-sm font-medium ${
+                        isActive('/hostel/staff-payments') ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      Staff Payments
+                    </Link>
+
+                    <Link
                       to="/hostel/profit-loss"
                       className={`block py-2 px-3 rounded-md text-sm font-medium ${
                         isActive('/hostel/profit-loss') ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-100'

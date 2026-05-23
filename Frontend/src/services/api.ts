@@ -51,6 +51,28 @@ interface StaffPayment {
   updatedAt: string;
 }
 
+interface HostelStaff {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface HostelStaffPayment {
+  id: number;
+  staffId: number;
+  staffName: string;
+  cash: number;
+  online: number;
+  amount: number;
+  date: string;
+  remark: string | null;
+  branchId?: number | null;
+  branchName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface Student {
   id: number;
   name: string;
@@ -1089,6 +1111,78 @@ const api = {
 
   exportStaffPaymentsCsv: async (params: { branchId?: number; month?: string; staffId?: number } = {}): Promise<Blob> => {
     const response = await apiClient.get('/staff-payments/export/csv', {
+      params,
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
+  // Hostel Staff Management
+  getHostelStaff: async (): Promise<{ staff: HostelStaff[] }> => {
+    const response = await apiClient.get('/hostel/staff-payments/staff');
+    return response.data;
+  },
+
+  addHostelStaff: async (staffData: { name: string }): Promise<{ staff: HostelStaff }> => {
+    const response = await apiClient.post('/hostel/staff-payments/staff', staffData);
+    return response.data;
+  },
+
+  updateHostelStaff: async (id: number, staffData: { name: string }): Promise<{ staff: HostelStaff }> => {
+    const response = await apiClient.put(`/hostel/staff-payments/staff/${id}`, staffData);
+    return response.data;
+  },
+
+  deleteHostelStaff: async (id: number): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/hostel/staff-payments/staff/${id}`);
+    return response.data;
+  },
+
+  // Hostel Staff Payments
+  getHostelStaffPayments: async (params: { branchId?: number; month?: string; staffId?: number } = {}): Promise<{ payments: HostelStaffPayment[]; staff: HostelStaff[] }> => {
+    const response = await apiClient.get('/hostel/staff-payments', { params });
+    return response.data;
+  },
+
+  getHostelStaffPaymentsByStaffId: async (staffId: number, params: { branchId?: number; month?: string } = {}): Promise<{ payments: HostelStaffPayment[] }> => {
+    const response = await apiClient.get(`/hostel/staff-payments/staff/${staffId}`, { params });
+    return response.data;
+  },
+
+  addHostelStaffPayment: async (paymentData: {
+    staffId: number;
+    cash: string | number;
+    online: string | number;
+    date: string;
+    remark: string;
+    branchId?: number | null;
+  }): Promise<HostelStaffPayment> => {
+    const response = await apiClient.post('/hostel/staff-payments', paymentData);
+    return response.data;
+  },
+
+  updateHostelStaffPayment: async (
+    id: number,
+    paymentData: {
+      staffId: number;
+      cash: string | number;
+      online: string | number;
+      date: string;
+      remark: string;
+      branchId?: number | null;
+    }
+  ): Promise<HostelStaffPayment> => {
+    const response = await apiClient.put(`/hostel/staff-payments/${id}`, paymentData);
+    return response.data;
+  },
+
+  deleteHostelStaffPayment: async (id: number): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/hostel/staff-payments/${id}`);
+    return response.data;
+  },
+
+  exportHostelStaffPaymentsCsv: async (params: { branchId?: number; month?: string; staffId?: number } = {}): Promise<Blob> => {
+    const response = await apiClient.get('/hostel/staff-payments/export/csv', {
       params,
       responseType: 'blob'
     });
