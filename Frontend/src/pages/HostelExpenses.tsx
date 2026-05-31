@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
@@ -96,6 +96,18 @@ const HostelExpenses: React.FC = () => {
     };
     fetchExpenses();
   }, [selectedBranchId, selectedMonth]);
+
+  const overallTotals = useMemo(() => {
+    return expenses.reduce(
+      (acc, e) => {
+        acc.cash += e.cash;
+        acc.online += e.online;
+        acc.total += e.amount;
+        return acc;
+      },
+      { cash: 0, online: 0, total: 0 }
+    );
+  }, [expenses]);
 
   // Effect to populate the form when an expense is selected for editing
   useEffect(() => {
@@ -266,6 +278,14 @@ const HostelExpenses: React.FC = () => {
                     className="w-full px-4 py-2 border border-purple-200/50 rounded-lg bg-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300/50 focus:border-purple-300/50 transition-all"
                   />
                 </div>
+                <div className="flex-1 text-sm md:text-base">
+                  <div className="font-semibold text-purple-700 mb-1">Totals</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-purple-50 rounded-lg px-3 py-2">Cash<br/>₹{overallTotals.cash.toFixed(2)}</div>
+                    <div className="bg-pink-50 rounded-lg px-3 py-2">Online<br/>₹{overallTotals.online.toFixed(2)}</div>
+                    <div className="bg-blue-50 rounded-lg px-3 py-2">Total<br/>₹{overallTotals.total.toFixed(2)}</div>
+                  </div>
+                </div>
                 <button
                   onClick={handleExportCsv}
                   disabled={isExporting}
@@ -370,12 +390,30 @@ const HostelExpenses: React.FC = () => {
                        - new Date(Number(ya), monthA).getTime();
                 })
                 .map(([monthYear, exps], idx) => {
-                  const total = exps.reduce((sum,e)=> sum+ e.amount, 0);
+                  const totals = exps.reduce((acc,e)=>{
+                    acc.cash += e.cash; acc.online += e.online; acc.total += e.amount; return acc;
+                  }, { cash:0, online:0, total:0 });
                   return (
                     <motion.div key={monthYear} className="mb-8"
                       initial={{opacity:0,y:12}} animate={{opacity:1,y:0}}
                       transition={{delay:0.2 + idx*0.1}}>
-                      <h2 className="text-xl font-semibold mb-4">{monthYear}</h2>
+                      <h2 className="text-xl font-semibold mb-3">{monthYear}</h2>
+                      <div className="mb-4">
+                        <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm md:text-base">
+                          <div className="rounded-lg px-3 py-2 bg-purple-50 border border-purple-100 text-purple-700">
+                            <div className="uppercase tracking-wide text-[11px] sm:text-xs text-purple-600">Cash</div>
+                            <div className="font-semibold text-base sm:text-lg">₹{totals.cash.toFixed(2)}</div>
+                          </div>
+                          <div className="rounded-lg px-3 py-2 bg-pink-50 border border-pink-100 text-pink-700">
+                            <div className="uppercase tracking-wide text-[11px] sm:text-xs text-pink-600">Online</div>
+                            <div className="font-semibold text-base sm:text-lg">₹{totals.online.toFixed(2)}</div>
+                          </div>
+                          <div className="rounded-lg px-3 py-2 bg-blue-50 border border-blue-100 text-blue-700">
+                            <div className="uppercase tracking-wide text-[11px] sm:text-xs text-blue-600">Total</div>
+                            <div className="font-semibold text-base sm:text-lg">₹{totals.total.toFixed(2)}</div>
+                          </div>
+                        </div>
+                      </div>
                       <div className="overflow-x-auto bg-white shadow rounded-lg">
                         <table className="min-w-full text-sm">
                           <thead className="bg-gray-100 font-semibold">
@@ -403,9 +441,7 @@ const HostelExpenses: React.FC = () => {
                           </tbody>
                         </table>
                       </div>
-                      <div className="mt-2 text-right font-semibold">
-                        Total for {monthYear}: ₹{total.toFixed(2)}
-                      </div>
+                      
                     </motion.div>
                   );
                 })

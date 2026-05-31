@@ -4,6 +4,9 @@ const { checkAdminOrStaff } = require('./auth');
 module.exports = (pool) => {
   const router = require('express').Router();
 
+  pool.query(`ALTER TABLE hostel_students ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE`)
+    .catch((e) => console.error('Failed ensuring is_deleted column on hostel_students:', e.message));
+
   // Helper: convert a student DB row (snake_case) to camelCase-friendly object
   function mapStudentRowToResponse(row) {
     if (!row) return null;
@@ -83,12 +86,14 @@ module.exports = (pool) => {
         ) hsh ON s.id = hsh.student_id AND hsh.rn = 1
       `;
       const queryParams = [];
+      // Exclude soft-deleted by default
+      queryText += ' WHERE s.is_deleted IS NOT TRUE';
       if (branch_id) {
         const parsedQueryBranchId = parseInt(branch_id);
         if (isNaN(parsedQueryBranchId)) {
           return res.status(400).json({ message: 'Invalid branch ID format for filtering.' });
         }
-        queryText += ' WHERE s.branch_id = $1';
+        queryText += ' AND s.branch_id = $1';
         queryParams.push(parsedQueryBranchId);
       }
       queryText += ' ORDER BY s.name ASC';
@@ -154,7 +159,7 @@ module.exports = (pool) => {
         `SELECT s.*, b.name as branch_name 
          FROM hostel_students s
          LEFT JOIN hostel_branches b ON s.branch_id = b.id
-         WHERE s.id = $1`,
+         WHERE s.id = $1 AND s.is_deleted IS NOT TRUE`,
         [parsedId]
       );
 
@@ -572,7 +577,7 @@ module.exports = (pool) => {
     try {
       await pool.query('BEGIN');
 
-      const studentRes = await pool.query('SELECT id, room_number, room_id FROM hostel_students WHERE id = $1', [studentId]);
+      const studentRes = await pool.query('SELECT id, room_number, room_id FROM hostel_students WHERE id = $1 AND is_deleted IS NOT TRUE', [studentId]);
       if (studentRes.rows.length === 0) {
         await pool.query('ROLLBACK');
         return res.status(404).json({ message: 'Student not found for renewal.' });
@@ -632,7 +637,7 @@ module.exports = (pool) => {
           SELECT hs.id
           FROM hostel_students hs
           LEFT JOIN hostel_student_history hsh ON hs.id = hsh.student_id 
-          WHERE hsh.id IS NOT NULL 
+          WHERE hsh.id IS NOT NULL AND hs.is_deleted IS NOT TRUE
           GROUP BY hs.id
           HAVING MAX(hsh.stay_end_date) < CURRENT_DATE
         )
@@ -646,7 +651,7 @@ module.exports = (pool) => {
         FROM hostel_students hs
         LEFT JOIN hostel_student_history hsh ON hs.id = hsh.student_id 
         LEFT JOIN hostel_branches b ON hs.branch_id = b.id
-        WHERE hsh.id IS NOT NULL 
+        WHERE hsh.id IS NOT NULL AND hs.is_deleted IS NOT TRUE
         GROUP BY hs.id, b.name, hs.phone_number, hs.aadhar_number, hs.room_number
         HAVING MAX(hsh.stay_end_date) < CURRENT_DATE
         ORDER BY hs.name ASC
@@ -670,15 +675,19 @@ module.exports = (pool) => {
     }
     try {
       await pool.query('BEGIN');
-      await pool.query('DELETE FROM hostel_student_history WHERE student_id = $1', [parsedId]);
-
-      const result = await pool.query('DELETE FROM hostel_students WHERE id = $1 RETURNING *', [parsedId]);
+      const result = await pool.query(
+        `UPDATE hostel_students 
+         SET is_deleted = TRUE, room_id = NULL, room_number = NULL, updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $1 AND is_deleted IS NOT TRUE 
+         RETURNING *`,
+        [parsedId]
+      );
       if (result.rowCount === 0) {
         await pool.query('ROLLBACK');
-        return res.status(404).json({ message: 'Student not found' });
+        return res.status(404).json({ message: 'Student not found or already deleted' });
       }
       await pool.query('COMMIT');
-      res.json({ message: 'Student and their history deleted successfully', student: result.rows[0] });
+      res.json({ message: 'Student deleted successfully (soft delete). Existing hostel membership history has been preserved.', student: result.rows[0] });
     } catch (err) {
       await pool.query('ROLLBACK');
       console.error('Error in DELETE /hostel/students/:id:', err.stack);
