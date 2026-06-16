@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
 import { ArrowLeft } from 'lucide-react';
-import SilentHostel from './SilentHostel.jpg';
+import SilentHostel from './SilentHostel.jpeg';
 
 const HostelStudentDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
