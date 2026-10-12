@@ -627,23 +627,8 @@ module.exports = (pool) => {
   // GET expired hostel students
   router.get('/meta/expired', checkAdminOrStaff, async (req, res) => {
     try {
-      await pool.query('BEGIN');
-      
-      // First, unassign rooms from expired students (only from hostel_students table, not history)
-      await pool.query(`
-        UPDATE hostel_students
-        SET room_id = NULL, room_number = NULL
-        WHERE id IN (
-          SELECT hs.id
-          FROM hostel_students hs
-          LEFT JOIN hostel_student_history hsh ON hs.id = hsh.student_id 
-          WHERE hsh.id IS NOT NULL AND hs.is_deleted IS NOT TRUE
-          GROUP BY hs.id
-          HAVING MAX(hsh.stay_end_date) < CURRENT_DATE
-        )
-      `);
-
-      // Then fetch the expired students
+      // Expired memberships are reported here, but room/seat assignments remain
+      // occupied until staff explicitly vacates them.
       const result = await pool.query(`
         SELECT hs.id, hs.name, hs.phone_number, hs.aadhar_number, hs.room_number,
                MAX(hsh.stay_end_date) as latest_stay_end_date,
@@ -657,10 +642,8 @@ module.exports = (pool) => {
         ORDER BY hs.name ASC
       `);
       
-      await pool.query('COMMIT');
       res.json({ expiredStudents: result.rows });
     } catch (err) {
-      await pool.query('ROLLBACK');
       console.error('Error fetching expired hostel students:', err.stack);
       res.status(500).json({ message: 'Server error fetching expired students', error: err.message });
     }

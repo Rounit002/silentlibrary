@@ -57,11 +57,10 @@ const Expenses: React.FC = () => {
   const [branches,     setBranches]     = useState<Branch[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<number>();
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth);
+  const [titleSearch, setTitleSearch] = useState('');
   const [formData,     setFormData]     = useState({
     title: '', cash: '', online: '', date: '', remark: '', branchId: ''
   });
-  const [isOtherTitle, setIsOtherTitle] = useState(false);
-  const [customTitle,  setCustomTitle]  = useState('');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -100,33 +99,23 @@ const Expenses: React.FC = () => {
     if (editingExpense) {
       // strip off any time portion
       const pureDate = editingExpense.date.split('T')[0];
-      const isPref   = products.some(p => p.name === editingExpense.title);
       setFormData({
-        title:  isPref ? editingExpense.title : 'Other',
+        title:  editingExpense.title,
         cash:   editingExpense.cash.toString(),
         online: editingExpense.online.toString(),
         date:   pureDate,
         remark: editingExpense.remark || '',
         branchId: editingExpense.branchId?.toString() || ''
       });
-      setIsOtherTitle(!isPref);
-      setCustomTitle(isPref ? '' : editingExpense.title);
     } else {
       setFormData({ title:'', cash:'', online:'', date:'', remark:'', branchId: selectedBranchId?.toString()||'' });
-      setIsOtherTitle(false);
-      setCustomTitle('');
     }
   }, [editingExpense, products, selectedBranchId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement|HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if (name==='title') {
-      setIsOtherTitle(value === 'Other');
-      if (value!=='Other') setCustomTitle('');
-    }
     setFormData(f => ({ ...f, [name]: value }));
   };
-  const handleCustomTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => setCustomTitle(e.target.value);
   const handleBranchChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
     setSelectedBranchId(e.target.value ? parseInt(e.target.value,10) : undefined);
   const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -158,7 +147,7 @@ const Expenses: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    const finalTitle = isOtherTitle && customTitle ? customTitle : formData.title;
+    const finalTitle = formData.title.trim();
     const totalAmt = parseFloat(formData.cash||'0') + parseFloat(formData.online||'0');
     if (!finalTitle || totalAmt<=0 || !formData.date) {
       toast.error('Title, a valid amount, and date are required');
@@ -209,7 +198,10 @@ const Expenses: React.FC = () => {
   const formatDate = (dateString: string) => dateString.split('T')[0];
 
   // group by Month Year purely from the string
-  const groupedExpenses = expenses.reduce((acc, exp) => {
+  const visibleExpenses = expenses.filter(exp =>
+    exp.title.toLocaleLowerCase().includes(titleSearch.trim().toLocaleLowerCase())
+  );
+  const groupedExpenses = visibleExpenses.reduce((acc, exp) => {
     const [year, month] = formatDate(exp.date).split('-');
     // get month name
     const monthName = new Intl.DateTimeFormat('en-US',{ month:'long' })
@@ -259,6 +251,11 @@ const Expenses: React.FC = () => {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex flex-col sm:flex-row gap-4">
                     <div>
+                      <label className="font-semibold mb-2 block">Search by product</label>
+                      <input type="search" value={titleSearch} onChange={e => setTitleSearch(e.target.value)}
+                        placeholder="Search expense name" className="w-full sm:w-48 px-4 py-2 border rounded" />
+                    </div>
+                    <div>
                       <label className="font-semibold mb-2 block">Filter by Branch</label>
                       <select value={selectedBranchId||''} onChange={handleBranchChange}
                         className="w-full sm:w-48 px-4 py-2 border rounded">
@@ -306,24 +303,12 @@ const Expenses: React.FC = () => {
                   {/* Title */}
                   <div>
                     <label className="block text-sm">Title</label>
-                    <select name="title" value={formData.title} onChange={handleChange}
-                      className="w-full mt-1 px-4 py-2 border rounded">
-                      <option value="">Select Title</option>
-                      {products.map(p=>(
-                        <option key={p.id} value={p.name}>{p.name}</option>
-                      ))}
-                      <option value="Other">Other</option>
-                    </select>
+                    <input name="title" list="expense-products" value={formData.title} onChange={handleChange}
+                      placeholder="Search or enter expense name" className="w-full mt-1 px-4 py-2 border rounded" />
+                    <datalist id="expense-products">
+                      {products.map(p => <option key={p.id} value={p.name} />)}
+                    </datalist>
                   </div>
-                  {isOtherTitle && (
-                    <div>
-                      <label className="block text-sm">Custom Title</label>
-                      <input name="customTitle" value={customTitle}
-                        onChange={handleCustomTitleChange}
-                        placeholder="Enter custom title"
-                        className="w-full mt-1 px-4 py-2 border rounded"/>
-                    </div>
-                  )}
                   {/* Cash */}
                   <div>
                     <label className="block text-sm">Cash Amount</label>

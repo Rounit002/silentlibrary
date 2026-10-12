@@ -23,3 +23,4 @@
 {"level":"error","message":"Error initializing session table:","timestamp":"2025-08-13T14:28:42.200Z"}
 {"level":"error","message":"Database connection error:","timestamp":"2025-08-13T14:28:42.206Z"}
 {"level":"error","message":"Error creating default admin user:","timestamp":"2025-08-13T14:28:42.257Z"}
+{"level":"error","message":"Database connection error:","timestamp":"2026-10-12T04:49:01.616Z"}
