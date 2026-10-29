@@ -67,6 +67,40 @@ const setupCronJobs = (pool) => {
     timezone: 'Asia/Kolkata'
   });
 
+  // Schedule a daily task at midnight to free up hostel rooms for expired memberships
+  cron.schedule('0 0 * * *', async () => {
+    try {
+      console.log('Running hostel room cleanup cron job...');
+
+      // Find hostel students whose latest membership has expired and still have room_id assigned
+      const result = await pool.query(`
+        UPDATE hostel_students hs
+        SET room_id = NULL, room_number = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE hs.room_id IS NOT NULL
+        AND hs.is_deleted IS NOT TRUE
+        AND NOT EXISTS (
+          SELECT 1 FROM hostel_student_history hsh
+          WHERE hsh.student_id = hs.id
+          AND hsh.stay_end_date >= CURRENT_DATE
+        )
+        RETURNING id, name, room_number
+      `);
+
+      if (result.rowCount > 0) {
+        console.log(`Freed ${result.rowCount} hostel room(s) for expired memberships:`);
+        result.rows.forEach(row => {
+          console.log(`  - Student: ${row.name} (ID: ${row.id}), Room: ${row.room_number}`);
+        });
+      } else {
+        console.log('No expired hostel memberships found with room assignments.');
+      }
+    } catch (err) {
+      console.error('Error in hostel room cleanup cron job:', err);
+    }
+  }, {
+    timezone: 'Asia/Kolkata'
+  });
+
   console.log('Cron jobs scheduled successfully in Asia/Kolkata timezone');
 };
 

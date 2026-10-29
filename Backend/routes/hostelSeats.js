@@ -14,7 +14,13 @@ module.exports = (pool) => {
                s.id as student_id, s.name as student_name
         FROM hostel_seats hs
         LEFT JOIN hostel_branches hb ON hs.branch_id = hb.id
-        LEFT JOIN hostel_students s ON s.room_id = hs.id
+        LEFT JOIN hostel_students s ON s.room_id = hs.id 
+          AND s.is_deleted IS NOT TRUE
+          AND EXISTS (
+            SELECT 1 FROM hostel_student_history hsh 
+            WHERE hsh.student_id = s.id 
+            AND hsh.stay_end_date >= CURRENT_DATE
+          )
         WHERE 1=1
       `;
 
